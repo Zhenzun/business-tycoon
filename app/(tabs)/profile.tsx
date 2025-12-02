@@ -1,16 +1,27 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, SafeAreaView, Alert, ActivityIndicator, ScrollView, Switch } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'expo-router';
 import { useGameStore } from '../../store/gameStore';
-import { formatCurrency } from '../../utils/format'; // Import Format
-import { LogOut, CloudUpload, User as UserIcon, TrendingUp } from 'lucide-react-native';
+import { formatCurrency } from '../../utils/format';
+import { ScaleButton } from '../../components/ScaleButton';
+import { triggerHaptic } from '../../utils/haptics';
+import { playSound } from '../../utils/sound';
+import { Confetti } from '../../components/Confetti';
+import { AngelShopModal } from '../../components/AngelShopModal';
+import { LogOut, CloudUpload, User as UserIcon, TrendingUp, AlertTriangle, Settings, Volume2, VolumeX, Smartphone, Crown, Activity } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { money, businesses, managers, investors, lifetimeEarnings, prestige } = useGameStore();
+  const { 
+    money, investors, lifetimeEarnings, prestige, stats, 
+    settings, toggleSfx, toggleHaptics 
+  } = useGameStore();
+  
   const [userEmail, setUserEmail] = useState<string | null>('Guest');
   const [loading, setLoading] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [showAngelShop, setShowAngelShop] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -19,106 +30,148 @@ export default function ProfileScreen() {
   }, []);
 
   const handleLogout = async () => {
+    triggerHaptic('medium');
     await supabase.auth.signOut();
     router.replace('/auth');
   };
 
   const handleManualSync = async () => {
+      triggerHaptic('light');
       setLoading(true);
-      setTimeout(() => { setLoading(false); Alert.alert("Synced", "Data saved!"); }, 1000);
+      setTimeout(() => { setLoading(false); Alert.alert("Synced", "Data saved securely!"); }, 800);
   };
 
-  // Logic Hitung Potensi Prestige
-  const potentialInvestors = Math.floor(Math.sqrt(lifetimeEarnings / 10000));
-  const newInvestorsClaimed = potentialInvestors - investors;
+  const potentialInvestors = Math.floor(Math.sqrt(lifetimeEarnings / 10000)); 
+  const newInvestorsClaimed = Math.max(0, potentialInvestors - investors);
   const canPrestige = newInvestorsClaimed > 0;
 
   const handlePrestige = () => {
     if (!canPrestige) {
-        Alert.alert("Not enough value", "You need to earn more money before selling your empire!");
+        triggerHaptic('error');
+        Alert.alert("Not enough value", "Earn more money to attract Investors!");
         return;
     }
 
+    triggerHaptic('warning');
     Alert.alert(
-        "Sell Empire?",
-        `You will reset everything but gain ${newInvestorsClaimed} Investors (+${newInvestorsClaimed * 2}% Bonus). This cannot be undone!`,
+        "PRESTIGE",
+        "Reset? You will lose money/businesses but gain Investors.",
         [
             { text: "Cancel", style: "cancel" },
-            { 
-                text: "SELL EVERYTHING", 
-                style: "destructive", 
-                onPress: () => {
-                    prestige();
-                    router.replace('/(tabs)');
-                }
-            }
+            { text: "DO IT", style: "destructive", onPress: () => {
+                setShowConfetti(true);
+                playSound('success'); 
+                triggerHaptic('heavy');
+                setTimeout(() => { prestige(); setShowConfetti(false); router.replace('/(tabs)'); }, 2500);
+            }}
         ]
     );
   };
 
   return (
-    <SafeAreaView className="screen-container">
-      <ScrollView contentContainerStyle={{padding: 24}}>
-        <Text className="text-header mb-8">HQ Settings</Text>
+    <SafeAreaView className="screen-container relative">
+      {showConfetti && <Confetti active={true} />}
+      <AngelShopModal visible={showAngelShop} onClose={() => setShowAngelShop(false)} />
 
-        {/* PROFILE CARD */}
-        <View className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex-row items-center mb-8">
-          <View className="bg-blue-600/20 p-4 rounded-full mr-4">
-            <UserIcon size={32} color="#3b82f6" />
-          </View>
-          <View>
-            <Text className="text-slate-400 text-xs uppercase font-bold tracking-wider">CEO Profile</Text>
-            <Text className="text-white text-lg font-bold">{userEmail}</Text>
-            <Text className="text-emerald-400 text-sm mt-1">{investors} Active Investors</Text>
-            <Text className="text-slate-500 text-xs mt-1">Lifetime: ${formatCurrency(lifetimeEarnings)}</Text>
-          </View>
+      <ScrollView contentContainerStyle={{padding: 24}}>
+        <Text className="text-header mb-8">HQ & Settings</Text>
+
+        {/* SETTINGS CARD */}
+        <View className="bg-slate-800 p-5 rounded-2xl border border-slate-700 mb-6 shadow-sm">
+            <View className="flex-row items-center mb-4 pb-2 border-b border-white/5">
+                <Settings size={20} color="#94a3b8" />
+                <Text className="text-slate-300 font-bold ml-2 text-lg">Preferences</Text>
+            </View>
+            <View className="flex-row justify-between items-center mb-4">
+                <View className="flex-row items-center">
+                    {settings.sfx ? <Volume2 size={20} color="#cbd5e1"/> : <VolumeX size={20} color="#64748b"/>}
+                    <Text className="text-white font-semibold ml-3">Sound Effects</Text>
+                </View>
+                <Switch value={settings.sfx} onValueChange={toggleSfx} trackColor={{ false: "#334155", true: "#2563eb" }} thumbColor={settings.sfx ? "#60a5fa" : "#94a3b8"} />
+            </View>
+            <View className="flex-row justify-between items-center">
+                <View className="flex-row items-center">
+                    <Smartphone size={20} color={settings.haptics ? "#cbd5e1" : "#64748b"} />
+                    <Text className="text-white font-semibold ml-3">Haptic Vibration</Text>
+                </View>
+                <Switch value={settings.haptics} onValueChange={toggleHaptics} trackColor={{ false: "#334155", true: "#2563eb" }} thumbColor={settings.haptics ? "#60a5fa" : "#94a3b8"} />
+            </View>
+        </View>
+
+        {/* STATS OVERVIEW */}
+        <View className="bg-slate-800 p-5 rounded-2xl border border-slate-700 mb-6">
+            <View className="flex-row items-center mb-4 pb-2 border-b border-white/5">
+                <Activity size={20} color="#34d399" />
+                <Text className="text-slate-300 font-bold ml-2 text-lg">Career Stats</Text>
+            </View>
+            <View className="flex-row justify-between mb-2">
+                <Text className="text-slate-400">Total Taps</Text>
+                <Text className="text-white font-mono">{stats.totalTaps.toLocaleString()}</Text>
+            </View>
+            <View className="flex-row justify-between mb-2">
+                <Text className="text-slate-400">Lifetime Earnings</Text>
+                <Text className="text-emerald-400 font-mono">${formatCurrency(lifetimeEarnings)}</Text>
+            </View>
+            <View className="flex-row justify-between">
+                <Text className="text-slate-400">Start Date</Text>
+                <Text className="text-white text-xs">{new Date(stats.startTime).toLocaleDateString()}</Text>
+            </View>
         </View>
 
         {/* PRESTIGE CARD */}
-        <View className="bg-gradient-to-r from-slate-800 to-slate-900 p-6 rounded-2xl border-2 border-amber-500/50 mb-8">
-            <View className="flex-row items-center mb-2">
-                <TrendingUp size={24} color="#FBBF24" />
-                <Text className="text-amber-400 text-xl font-bold ml-2">Market IPO</Text>
-            </View>
-            <Text className="text-slate-300 mb-4">
-                Sell your company to investors. Reset progress for a permanent profit boost.
-            </Text>
-            
-            <View className="flex-row justify-between mb-4">
-                <View>
-                    <Text className="text-slate-500 text-xs uppercase">Current Bonus</Text>
-                    <Text className="text-white font-bold text-lg">+{investors * 2}%</Text>
+        <View className="bg-gradient-to-br from-slate-800 to-black p-1 rounded-3xl border border-amber-500/50 mb-8 shadow-lg shadow-amber-900/20">
+            <View className="bg-slate-900 p-5 rounded-[22px]">
+                <View className="flex-row items-center mb-2">
+                    <TrendingUp size={24} color="#FBBF24" />
+                    <Text className="text-amber-400 text-xl font-bold ml-2 tracking-tight">Market IPO</Text>
                 </View>
-                <View>
-                    <Text className="text-slate-500 text-xs uppercase">On Sale</Text>
-                    <Text className={`font-bold text-lg ${canPrestige ? 'text-emerald-400' : 'text-slate-600'}`}>
-                        +{newInvestorsClaimed > 0 ? newInvestorsClaimed : 0} Investors
-                    </Text>
+                
+                <View className="flex-row justify-between mb-6 bg-slate-950 p-4 rounded-xl border border-white/5">
+                    <View>
+                        <Text className="text-slate-500 text-[10px] uppercase font-bold">Investors</Text>
+                        <Text className="text-white font-mono font-bold text-lg">{formatCurrency(investors)}</Text>
+                    </View>
+                    <View className="items-end">
+                        <Text className="text-slate-500 text-[10px] uppercase font-bold">Claimable</Text>
+                        <Text className={`font-mono font-bold text-lg ${canPrestige ? 'text-emerald-400' : 'text-slate-600'}`}>+{formatCurrency(newInvestorsClaimed)}</Text>
+                    </View>
                 </View>
-            </View>
 
-            <TouchableOpacity 
-                onPress={handlePrestige}
-                className={`py-3 rounded-xl items-center ${canPrestige ? 'bg-amber-500' : 'bg-slate-700'}`}
-            >
-                <Text className={`font-bold ${canPrestige ? 'text-black' : 'text-slate-500'}`}>
-                    PRESTIGE (RESET)
-                </Text>
-            </TouchableOpacity>
+                {/* TWO BUTTONS: PRESTIGE & SHOP */}
+                <View className="flex-row space-x-3">
+                    <ScaleButton 
+                        onPress={() => setShowAngelShop(true)}
+                        className="flex-1 bg-slate-800 py-4 rounded-xl items-center flex-row justify-center border border-amber-500/30"
+                    >
+                        <Crown size={18} color="#fbbf24" style={{marginRight:6}}/>
+                        <Text className="text-amber-400 font-bold text-xs">ANGEL SHOP</Text>
+                    </ScaleButton>
+
+                    <ScaleButton 
+                        onPress={handlePrestige}
+                        disabled={!canPrestige}
+                        className={`flex-[2] py-4 rounded-xl items-center justify-center ${canPrestige ? 'bg-amber-500' : 'bg-slate-700'}`}
+                    >
+                        <Text className={`font-extrabold tracking-widest ${canPrestige ? 'text-black' : 'text-slate-600'}`}>
+                            RESET
+                        </Text>
+                    </ScaleButton>
+                </View>
+            </View>
         </View>
 
         {/* MENU ACTIONS */}
-        <View className="space-y-4">
-          <TouchableOpacity onPress={handleManualSync} disabled={loading} className="bg-slate-800 p-4 rounded-xl border border-slate-600 flex-row items-center">
-            <CloudUpload size={24} color="#3b82f6" />
-            <Text className="text-white font-bold ml-4">Force Cloud Save</Text>
+        <View className="space-y-3">
+          <ScaleButton onPress={handleManualSync} disabled={loading} className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex-row items-center active:bg-slate-700">
+            <CloudUpload size={20} color="#94a3b8" />
+            <Text className="text-slate-300 font-bold ml-4">Force Cloud Save</Text>
             {loading && <ActivityIndicator color="white" className="ml-auto" />}
-          </TouchableOpacity>
+          </ScaleButton>
 
-          <TouchableOpacity onPress={handleLogout} className="bg-red-900/20 p-4 rounded-xl border border-red-900/50 flex-row items-center">
-            <LogOut size={24} color="#ef4444" />
+          <ScaleButton onPress={handleLogout} className="bg-red-900/10 p-4 rounded-xl border border-red-900/30 flex-row items-center active:bg-red-900/20">
+            <LogOut size={20} color="#ef4444" />
             <Text className="text-red-400 font-bold ml-4">Retire (Logout)</Text>
-          </TouchableOpacity>
+          </ScaleButton>
         </View>
       </ScrollView>
     </SafeAreaView>

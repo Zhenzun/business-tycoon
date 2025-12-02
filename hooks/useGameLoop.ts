@@ -2,33 +2,48 @@ import { useEffect, useRef } from 'react';
 import { useGameStore } from '../store/gameStore';
 
 export const useGameLoop = () => {
-  // 1. Ambil state 'investors' dari store
-  const { businesses, managers, investors, addMoney } = useGameStore();
+  const { 
+    businesses, managers, addMoney, getGlobalMultiplier, 
+    activeEvent, triggerRandomEvent, clearEvent, 
+    research, investors 
+  } = useGameStore();
+  
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // The Loop (Passive Income)
   useEffect(() => {
     const tick = () => {
+      // 1. Handle Active Event Duration
+      if (activeEvent && activeEvent.startTime) {
+        const elapsed = (Date.now() - activeEvent.startTime) / 1000;
+        if (elapsed >= activeEvent.duration) {
+            clearEvent(); // Event Selesai
+        }
+      } else {
+        // 2. Random Event Trigger
+        // 1% chance per second (Approx every 100s)
+        if (Math.random() < 0.01) {
+            triggerRandomEvent();
+        }
+      }
+
+      // 3. Calculate Income
       let income = 0;
       
-      // 2. Hitung Multiplier Global dari Investor (Setiap 1 investor = +2% revenue)
-      const investorMultiplier = 1 + (investors * 0.02);
-
       businesses.forEach((biz) => {
         if (biz.owned) {
-            // Cek apakah ada manager untuk bisnis ini
             const mgr = managers.find(m => m.businessId === biz.id && m.hired);
             const managerMult = mgr ? mgr.multiplier : 1;
-            
-            // Hitung revenue bisnis individual
             income += (biz.baseRevenue * biz.level * managerMult);
         }
       });
       
-      // 3. Terapkan Global Boost ke total income
-      const totalIncome = income * investorMultiplier;
+      // Global multiplier now includes Active Event
+      const globalMultiplier = getGlobalMultiplier();
+      const totalIncome = income * globalMultiplier;
 
-      if (totalIncome > 0) addMoney(totalIncome);
+      if (totalIncome > 0) {
+          addMoney(totalIncome);
+      }
     };
 
     intervalRef.current = setInterval(tick, 1000);
@@ -36,5 +51,5 @@ export const useGameLoop = () => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [businesses, managers, investors]); // 4. Wajib tambahkan 'investors' ke dependency array
+  }, [businesses, managers, research, investors, activeEvent]); // Add activeEvent
 };

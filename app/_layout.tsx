@@ -1,9 +1,10 @@
 import "../global.css";
 import { useEffect } from "react";
-import { AppState, AppStateStatus } from "react-native";
+import { AppState, AppStateStatus, View } from "react-native";
 import { Stack } from "expo-router";
 import { supabase } from "../lib/supabase";
 import { useGameStore } from "../store/gameStore";
+import { GlobalToast } from "../components/GlobalToast"; // Import Component
 
 export default function RootLayout() {
   
@@ -19,10 +20,15 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="auth" options={{ headerShown: false, presentation: 'modal' }} />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      {/* Toast Overlay */}
+      <GlobalToast />
+      
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="auth" options={{ headerShown: false, presentation: 'modal' }} />
+      </Stack>
+    </View>
   );
 }
 
@@ -32,8 +38,6 @@ const syncToCloud = async () => {
 
   if (!user) return;
 
-  console.log("☁️ Syncing game data (stats & achievements)...");
-
   try {
     const { error: profileError } = await supabase
       .from('profiles')
@@ -42,8 +46,8 @@ const syncToCloud = async () => {
         gems: state.gems,
         investors: state.investors,
         last_daily_reward: state.lastDailyReward,
-        game_stats: state.stats, // <--- SYNC STATS
-        claimed_achievements: state.claimedAchievements, // <--- SYNC ACHIEVEMENTS
+        game_stats: state.stats,
+        claimed_achievements: state.claimedAchievements,
         last_sync: new Date().toISOString() 
       })
       .eq('id', user.id);
@@ -66,9 +70,7 @@ const syncToCloud = async () => {
     if (hiredManagers.length > 0) {
         await supabase.from('user_managers').upsert(hiredManagers, { onConflict: 'user_id, manager_id' });
     }
-
-    console.log("✅ Sync success!");
   } catch (err) {
-    console.error("❌ Sync failed:", err);
+    console.error("Sync failed:", err);
   }
 };
