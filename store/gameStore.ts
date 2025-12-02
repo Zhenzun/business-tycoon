@@ -22,6 +22,7 @@ export type Manager = {
   businessId: string;
   multiplier: number;
   hired: boolean;
+  level: number;
 };
 
 export type ResearchItem = {
@@ -50,6 +51,16 @@ export type GameStats = {
   startTime: number;
 };
 
+export type Stock = {
+  id: string;
+  symbol: string;
+  name: string;
+  price: number;
+  previousPrice: number;
+  volatility: number;
+  history: number[]; // Riwayat harga untuk chart
+};
+
 // --- DATA DEFINITIONS ---
 export const ANGEL_UPGRADES: AngelUpgrade[] = [
   { id: 'au_1', name: 'Heavenly Chips', description: 'All Profit x3', cost: 10, effectType: 'profit_mult', value: 3 },
@@ -69,8 +80,9 @@ export type GameEvent = {
 
 const POSSIBLE_EVENTS: GameEvent[] = [
   { id: 'viral_marketing', name: '🔥 Viral Marketing', multiplier: 3, duration: 30 },
-  { id: 'market_boom', name: '📈 Market Boom', multiplier: 5, duration: 15 },
+  { id: 'market_boom', name: '📈 Market Boom', multiplier: 5, duration: 20 }, // New Event
   { id: 'investor_visit', name: '👼 Angel Investor Visit', multiplier: 2, duration: 60 },
+  { id: 'market_crash', name: '📉 Market Correction', multiplier: 0.5, duration: 15 }, // New Bad Event
 ];
 
 export const ACHIEVEMENT_DEFS = [
@@ -89,17 +101,30 @@ const INITIAL_BUSINESSES: Business[] = [
 ];
 
 const INITIAL_MANAGERS: Manager[] = [
-  { id: 'mgr_lemon', name: 'Kid Neighbor', description: 'x2 Lemonade Revenue', cost: 1000, businessId: 'lemonade', multiplier: 2, hired: false },
-  { id: 'mgr_bakery', name: 'Grandma', description: 'x3 Bakery Revenue', cost: 5000, businessId: 'bakery', multiplier: 3, hired: false },
-  { id: 'mgr_tech', name: 'Elon M.', description: 'x5 Startup Revenue', cost: 50000, businessId: 'tech_startup', multiplier: 5, hired: false },
-  { id: 'mgr_crypto', name: 'Satoshi', description: 'x8 Crypto Revenue', cost: 5000000, businessId: 'crypto_farm', multiplier: 8, hired: false },
-  { id: 'mgr_space', name: 'Starman', description: 'x10 Space Revenue', cost: 2000000000, businessId: 'space_agency', multiplier: 10, hired: false },
-  { id: 'mgr_ai', name: 'Skynet', description: 'x20 AI Revenue', cost: 500000000000, businessId: 'ai_core', multiplier: 20, hired: false },
+  { id: 'mgr_lemon', name: 'Kid Neighbor', description: 'x2 Lemonade Revenue', cost: 1000, businessId: 'lemonade', multiplier: 2, hired: false, level: 1 },
+  { id: 'mgr_bakery', name: 'Grandma', description: 'x3 Bakery Revenue', cost: 5000, businessId: 'bakery', multiplier: 3, hired: false, level: 1 },
+  { id: 'mgr_tech', name: 'Elon M.', description: 'x5 Startup Revenue', cost: 50000, businessId: 'tech_startup', multiplier: 5, hired: false, level: 1 },
+  { id: 'mgr_crypto', name: 'Satoshi', description: 'x8 Crypto Revenue', cost: 5000000, businessId: 'crypto_farm', multiplier: 8, hired: false, level: 1 },
+  { id: 'mgr_space', name: 'Starman', description: 'x10 Space Revenue', cost: 2000000000, businessId: 'space_agency', multiplier: 10, hired: false, level: 1 },
+  { id: 'mgr_ai', name: 'Skynet', description: 'x20 AI Revenue', cost: 500000000000, businessId: 'ai_core', multiplier: 20, hired: false, level: 1 },
 ];
 
 const INITIAL_RESEARCH: ResearchItem[] = [
-  { id: 'res_marketing', name: 'Marketing 101', description: 'Global Profit +10%', baseCost: 50000, maxLevel: 10, multiplierPerLevel: 0.1, currentLevel: 0 },
-  { id: 'res_efficiency', name: 'Process Optimization', description: 'Global Profit +25%', baseCost: 250000, maxLevel: 5, multiplierPerLevel: 0.25, currentLevel: 0 },
+  { id: 'res_marketing', name: 'Digital Marketing', description: 'Global Profit +10%', baseCost: 50000, maxLevel: 10, multiplierPerLevel: 0.1, currentLevel: 0 },
+  { id: 'res_efficiency', name: 'Lean Management', description: 'Global Profit +25%', baseCost: 250000, maxLevel: 5, multiplierPerLevel: 0.25, currentLevel: 0 },
+  { id: 'res_ai', name: 'AI Integration', description: 'Global Profit +50%', baseCost: 1000000, maxLevel: 5, multiplierPerLevel: 0.5, currentLevel: 0 },
+  { id: 'res_quantum', name: 'Quantum Computing', description: 'Global Profit +100%', baseCost: 50000000, maxLevel: 3, multiplierPerLevel: 1.0, currentLevel: 0 },
+];
+
+// Fill history with initial price for cleaner chart start
+const fillHistory = (price: number) => Array(20).fill(price);
+
+const INITIAL_STOCKS: Stock[] = [
+  { id: 'stk_tech', symbol: 'TECH', name: 'Tech Giant Inc', price: 100, previousPrice: 100, volatility: 0.05, history: fillHistory(100) },
+  { id: 'stk_mine', symbol: 'GOLD', name: 'Gold Mines', price: 50, previousPrice: 50, volatility: 0.02, history: fillHistory(50) },
+  { id: 'stk_coin', symbol: 'DOGE', name: 'Meme Coin', price: 10, previousPrice: 10, volatility: 0.15, history: fillHistory(10) },
+  { id: 'stk_food', symbol: 'BURGER', name: 'McBurgers', price: 200, previousPrice: 200, volatility: 0.03, history: fillHistory(200) },
+  { id: 'stk_energy', symbol: 'VOLT', name: 'Future Energy', price: 75, previousPrice: 75, volatility: 0.08, history: fillHistory(75) },
 ];
 
 interface GameState {
@@ -110,16 +135,16 @@ interface GameState {
   businesses: Business[];
   managers: Manager[];
   research: ResearchItem[];
+  stocks: Stock[];
+  portfolio: { [stockId: string]: number };
   stats: GameStats;
   claimedAchievements: string[];
   lastLogin: number;
   lastDailyReward: number;
   settings: { sfx: boolean; haptics: boolean };
-  
-  // New States
   activeEvent: GameEvent | null;
   toast: { message: string; type: 'success' | 'info' | 'warning' } | null;
-  angelUpgrades: string[]; // ID upgrade yang sudah dibeli
+  angelUpgrades: string[];
 
   // Actions
   addMoney: (amount: number) => void;
@@ -128,17 +153,18 @@ interface GameState {
   buyBusiness: (id: string) => void;
   upgradeBusiness: (id: string) => void;
   hireManager: (managerId: string) => void;
+  upgradeManager: (managerId: string) => void;
   buyResearch: (researchId: string) => void;
-  buyAngelUpgrade: (id: string) => void; // NEW
-  
+  buyAngelUpgrade: (id: string) => void;
+  tickStocks: () => void;
+  buyStock: (stockId: string, amount: number) => void;
+  sellStock: (stockId: string, amount: number) => void;
   toggleSfx: () => void;
   toggleHaptics: () => void;
-  
   triggerRandomEvent: () => void;
   clearEvent: () => void;
   showToast: (message: string, type?: 'success' | 'info' | 'warning') => void;
   hideToast: () => void;
-
   getGlobalMultiplier: () => number;
   calculateOfflineEarnings: () => number;
   claimDailyReward: () => boolean;
@@ -151,7 +177,6 @@ interface GameState {
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
-      // ... Initial State ...
       money: 0,
       gems: 50,
       investors: 0,
@@ -159,6 +184,8 @@ export const useGameStore = create<GameState>()(
       businesses: INITIAL_BUSINESSES,
       managers: INITIAL_MANAGERS,
       research: INITIAL_RESEARCH,
+      stocks: INITIAL_STOCKS,
+      portfolio: {},
       stats: { totalTaps: 0, totalBizUpgrades: 0, totalEarnings: 0, startTime: Date.now() },
       claimedAchievements: [],
       lastLogin: Date.now(),
@@ -166,57 +193,96 @@ export const useGameStore = create<GameState>()(
       settings: { sfx: true, haptics: true },
       activeEvent: null,
       toast: null,
-      angelUpgrades: [], // Init empty
+      angelUpgrades: [],
 
-      // --- HELPER MULTIPLIER (UPDATED WITH ANGEL UPGRADES) ---
       getGlobalMultiplier: () => {
         const state = get();
-        // 1. Investor Bonus (+2% per investor)
         const investorMult = 1 + (state.investors * 0.02);
-        
-        // 2. Research Bonus
         let researchMult = 1;
-        state.research.forEach(r => {
-            researchMult += (r.currentLevel * r.multiplierPerLevel);
-        });
-
-        // 3. Event Bonus
+        state.research.forEach(r => { researchMult += (r.currentLevel * r.multiplierPerLevel); });
         const eventMult = state.activeEvent ? state.activeEvent.multiplier : 1;
-
-        // 4. Angel Upgrade Bonus (Profit Multiplier)
         let angelMult = 1;
         state.angelUpgrades.forEach(id => {
             const upgrade = ANGEL_UPGRADES.find(u => u.id === id);
-            if (upgrade && upgrade.effectType === 'profit_mult') {
-                angelMult *= upgrade.value; // Compound!
-            }
+            if (upgrade && upgrade.effectType === 'profit_mult') angelMult *= upgrade.value;
         });
-
         return investorMult * researchMult * eventMult * angelMult;
       },
+
+      tickStocks: () => set((state) => {
+        const newStocks = state.stocks.map(stock => {
+            // 1. Basic Volatility
+            let changePercent = (Math.random() * 2 - 1) * stock.volatility;
+            
+            // 2. Event Influence (New Logic)
+            if (state.activeEvent?.id === 'market_boom') {
+                changePercent += 0.03; // Bias positif kuat
+            } else if (state.activeEvent?.id === 'market_crash') {
+                changePercent -= 0.03; // Bias negatif kuat
+            } else if (Math.random() < 0.1) {
+                // 3. Random 'Whale' movement (10% chance for bigger move)
+                changePercent *= 3;
+            }
+
+            let newPrice = stock.price * (1 + changePercent);
+            newPrice = Math.max(0.1, Math.min(newPrice, 10000)); // Hard limits
+            
+            // Simpan 20 data terakhir untuk grafik
+            const newHistory = [...stock.history, newPrice].slice(-20);
+
+            return { 
+                ...stock, 
+                previousPrice: stock.price, 
+                price: newPrice, 
+                history: newHistory 
+            };
+        });
+        return { stocks: newStocks };
+      }),
+
+      buyStock: (stockId, amount) => set((state) => {
+          const stock = state.stocks.find(s => s.id === stockId);
+          if (!stock) return state;
+          const totalCost = stock.price * amount;
+          if (state.money >= totalCost) {
+              triggerHaptic('success');
+              const currentQty = state.portfolio[stockId] || 0;
+              return { money: state.money - totalCost, portfolio: { ...state.portfolio, [stockId]: currentQty + amount } };
+          }
+          return state;
+      }),
+
+      sellStock: (stockId, amount) => set((state) => {
+          const stock = state.stocks.find(s => s.id === stockId);
+          if (!stock) return state;
+          const currentQty = state.portfolio[stockId] || 0;
+          if (currentQty >= amount) {
+              triggerHaptic('success');
+              const totalRevenue = stock.price * amount;
+              return { money: state.money + totalRevenue, portfolio: { ...state.portfolio, [stockId]: currentQty - amount } };
+          }
+          return state;
+      }),
 
       buyAngelUpgrade: (id) => set((state) => {
         if (state.angelUpgrades.includes(id)) return state;
         const upgrade = ANGEL_UPGRADES.find(u => u.id === id);
         if (!upgrade) return state;
-
         if (state.investors >= upgrade.cost) {
             triggerHaptic('success');
-            return {
-                investors: state.investors - upgrade.cost, // Spend Investors!
-                angelUpgrades: [...state.angelUpgrades, id]
-            };
+            return { investors: state.investors - upgrade.cost, angelUpgrades: [...state.angelUpgrades, id] };
         }
         return state;
       }),
 
-      // ... (Standard Actions) ...
       addMoney: (amount) => set((state) => ({ 
         money: state.money + amount,
         lifetimeEarnings: state.lifetimeEarnings + amount,
         stats: { ...state.stats, totalEarnings: state.stats.totalEarnings + amount }
       })),
+      
       addGems: (amount) => set((state) => ({ gems: state.gems + amount })),
+      
       registerTap: () => set((state) => ({ stats: { ...state.stats, totalTaps: state.stats.totalTaps + 1 } })),
       
       buyBusiness: (id) => set((state) => {
@@ -234,18 +300,12 @@ export const useGameStore = create<GameState>()(
       upgradeBusiness: (id) => set((state) => {
         const bizIndex = state.businesses.findIndex((b) => b.id === id);
         const biz = state.businesses[bizIndex];
-        
-        // Calculate Base Cost
         let cost = Math.floor(biz.baseCost * Math.pow(1.15, biz.level));
-        
-        // Apply Angel Discount (Cost Reduction)
         let discount = 0;
         state.angelUpgrades.forEach(uid => {
             const upg = ANGEL_UPGRADES.find(u => u.id === uid);
             if (upg && upg.effectType === 'cost_disc') discount += upg.value;
         });
-        
-        // Cap max discount (misal max 50%)
         const finalDiscount = Math.min(discount, 0.5);
         cost = Math.floor(cost * (1 - finalDiscount)); 
 
@@ -260,7 +320,6 @@ export const useGameStore = create<GameState>()(
           }
           const newBizs = [...state.businesses];
           newBizs[bizIndex] = { ...biz, level: newLevel, baseRevenue: newBaseRevenue };
-          
           return { 
               money: state.money - cost, 
               businesses: newBizs,
@@ -276,8 +335,23 @@ export const useGameStore = create<GameState>()(
         if (state.money >= mgr.cost && !mgr.hired) {
             triggerHaptic('heavy');
             const newMgrs = [...state.managers];
-            newMgrs[mgrIndex] = { ...mgr, hired: true };
+            newMgrs[mgrIndex] = { ...mgr, hired: true, level: 1 };
             return { money: state.money - mgr.cost, managers: newMgrs };
+        }
+        return state;
+      }),
+
+      upgradeManager: (managerId) => set((state) => {
+        const mgrIndex = state.managers.findIndex(m => m.id === managerId);
+        const mgr = state.managers[mgrIndex];
+        if (!mgr.hired) return state;
+        const upgradeCost = mgr.cost * 10 * mgr.level;
+        if (state.money >= upgradeCost) {
+            triggerHaptic('success');
+            const newMgrs = [...state.managers];
+            newMgrs[mgrIndex] = { ...mgr, level: mgr.level + 1 };
+            get().showToast(`${mgr.name} Leveled Up!`, 'success');
+            return { money: state.money - upgradeCost, managers: newMgrs };
         }
         return state;
       }),
@@ -296,6 +370,7 @@ export const useGameStore = create<GameState>()(
       }),
 
       toggleSfx: () => set((state) => ({ settings: { ...state.settings, sfx: !state.settings.sfx } })),
+      
       toggleHaptics: () => {
         const state = get();
         const newVal = !state.settings.haptics;
@@ -312,11 +387,14 @@ export const useGameStore = create<GameState>()(
         get().showToast(`${event.name} Active! (x${event.multiplier})`, 'warning');
         triggerHaptic('success');
       },
+      
       clearEvent: () => set({ activeEvent: null }),
+      
       showToast: (message, type = 'info') => {
         set({ toast: { message, type } });
         setTimeout(() => { set({ toast: null }); }, 3000);
       },
+      
       hideToast: () => set({ toast: null }),
 
       calculateOfflineEarnings: () => {
@@ -328,7 +406,7 @@ export const useGameStore = create<GameState>()(
         state.businesses.forEach(b => {
           if (b.owned) {
              const mgr = state.managers.find(m => m.businessId === b.id && m.hired);
-             const managerMult = mgr ? mgr.multiplier : 1;
+             const managerMult = mgr ? mgr.multiplier * (mgr.level || 1) : 1;
              incomePerSec += (b.baseRevenue * b.level * managerMult);
           }
         });
@@ -356,12 +434,11 @@ export const useGameStore = create<GameState>()(
               state.businesses.forEach(b => {
                 if (b.owned) {
                     const mgr = state.managers.find(m => m.businessId === b.id && m.hired);
-                    const managerMult = mgr ? mgr.multiplier : 1;
+                    const managerMult = mgr ? mgr.multiplier * (mgr.level || 1) : 1;
                     incomePerSec += (b.baseRevenue * b.level * managerMult);
                 }
               });
               
-              // Apply Angel Time Warp Bonus
               let warpBonus = 0;
               state.angelUpgrades.forEach(id => {
                   const u = ANGEL_UPGRADES.find(au => au.id === id);
@@ -369,7 +446,7 @@ export const useGameStore = create<GameState>()(
               });
 
               incomePerSec = incomePerSec * state.getGlobalMultiplier();
-              const instantCash = incomePerSec * 3600 * hours * (1 + warpBonus); // Apply Bonus
+              const instantCash = incomePerSec * 3600 * hours * (1 + warpBonus); 
               
               triggerHaptic('heavy');
               set({ gems: state.gems - cost, money: state.money + instantCash, lifetimeEarnings: state.lifetimeEarnings + instantCash });
@@ -411,7 +488,8 @@ export const useGameStore = create<GameState>()(
             lastLogin: Date.now(),
             gems: state.gems + 100,
             activeEvent: null,
-            // Angel Upgrades & Stats are PERMANENT
+            stocks: INITIAL_STOCKS, // Reset stocks on prestige
+            portfolio: {}
         };
       }),
 
@@ -428,7 +506,7 @@ export const useGameStore = create<GameState>()(
       }
     }),
     {
-      name: 'tycoon-storage-v12-angels',
+      name: 'tycoon-storage-v15-events',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )
