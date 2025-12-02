@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* GOD TIER TIP: 
+  Gunakan @layer components untuk membuat "UI Kit" sederhana.
+  Ini membuat kode TSX kamu jauh lebih bersih dan mudah dimaintain.
+*/
+
+@layer components {
+  /* Style Container Utama */
+  .screen-container {
+    @apply flex-1 bg-game-bg;
+  }
+
+  /* Style Card Bisnis */
+  .biz-card {
+    @apply bg-game-card p-4 rounded-2xl border border-slate-700 shadow-sm mb-4;
+  }
+
+  /* Tombol Utama (Buy/Action) */
+  .btn-primary {
+    @apply bg-brand-primary px-6 py-3 rounded-xl flex-row items-center justify-center shadow-lg shadow-blue-500/30 active:opacity-80;
+  }
+
+  /* Tombol Disabled */
+  .btn-disabled {
+    @apply bg-slate-700 opacity-50;
+  }
+
+  /* Teks Judul/Header */
+  .text-header {
+    @apply text-white font-extrabold text-3xl tracking-tight;
+  }
+
+  /* Teks Uang */
+  .text-money {
+    @apply text-game-money font-bold font-mono; 
+  }
+}
+
+/* Custom Utilities jika diperlukan untuk animasi/efek khusus */
+@layer utilities {
+  .text-shadow {
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  }
+}
