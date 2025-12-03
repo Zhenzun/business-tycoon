@@ -45,7 +45,9 @@ export default function Dashboard() {
   }, []);
 
   const handleTap = (event: any) => {
-    triggerHaptic('light'); 
+    // Hapus triggerHaptic di sini karena sudah dipindah ke ScaleButton agar tidak double getar
+    // triggerHaptic('light'); <--- HAPUS ATAU KOMENTARI INI
+    
     playSound('tap'); 
 
     const baseTapPower = 10;
@@ -54,10 +56,9 @@ export default function Dashboard() {
     addMoney(amount);
     registerTap();
 
-    // FIX: Menggunakan optional chaining dan nilai default agar tidak error
-    // Jika posisi tidak terbaca, animasi muncul di tengah layar
-    const pageX = event?.nativeEvent?.pageX || 200;
-    const pageY = event?.nativeEvent?.pageY || 400;
+    // FIX: Gunakan lokasi default jika event tidak terbaca (misal di Android tertentu)
+    const pageX = event?.nativeEvent?.pageX ?? 200;
+    const pageY = event?.nativeEvent?.pageY ?? 400;
     
     const id = Date.now();
     const randomX = (Math.random() - 0.5) * 60;
@@ -84,7 +85,7 @@ export default function Dashboard() {
       <View className="items-center justify-center py-8 bg-slate-900/50 mb-6 border-b border-white/5">
         <ScaleButton
           onPress={handleTap}
-          className="bg-gradient-to-b from-blue-500 to-blue-700 p-6 rounded-full border-[6px] border-blue-400/20 shadow-[0_0_40px_rgba(59,130,246,0.5)] active:scale-95"
+          className="bg-gradient-to-b from-blue-500 to-blue-700 p-6 rounded-full border-[6px] border-blue-400/20 shadow-[0_0_40px_rgba(59,130,246,0.5)]"
         >
           <CircleDollarSign size={72} color="white" />
         </ScaleButton>
