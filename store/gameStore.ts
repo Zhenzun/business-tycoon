@@ -149,6 +149,7 @@ interface GameState {
   activeEvent: GameEvent | null;
   toast: { message: string; type: 'success' | 'info' | 'warning' } | null;
   angelUpgrades: string[];
+  updateLastLogin: () => void;
 
   // Actions
   addMoney: (amount: number) => void;
@@ -199,6 +200,7 @@ export const useGameStore = create<GameState>()(
       activeEvent: null,
       toast: null,
       angelUpgrades: [],
+      updateLastLogin: () => set({ lastLogin: Date.now() }),
 
       getGlobalMultiplier: () => {
         const state = get();
@@ -333,42 +335,42 @@ export const useGameStore = create<GameState>()(
       // [UPDATE] Sistem Gacha Manager
       summonManager: () => {
         const state = get();
-        const COST = 100; // Harga 1x Gacha
+        const COST = 100;
 
         if (state.gems < COST) {
             return { success: false, message: "Not enough Gems!" };
         }
 
-        // Filter manager yang belum di-hire
-        const availableManagers = state.managers.filter(m => !m.hired);
+        // Logic Gacha: Bisa dapat manager yang sudah punya (untuk upgrade gratis)
+        const allManagers = state.managers;
         
-        // Jika semua sudah punya, upgrade level manager acak
-        if (availableManagers.length === 0) {
-            // Pilih acak untuk diberi level up gratis/bonus (opsional logic)
-            return { success: false, message: "All managers hired! (Prestige to reset)" };
-        }
-
-        // GACHA ALGORITHM (RNG)
+        // GACHA RNG (Rarity)
         const rand = Math.random();
         let targetRarity: ManagerRarity = 'Common';
-        
-        if (rand > 0.95) targetRarity = 'Legendary'; // 5% chance
-        else if (rand > 0.70) targetRarity = 'Rare'; // 25% chance
-        // else Common (70%)
+        if (rand > 0.95) targetRarity = 'Legendary';
+        else if (rand > 0.70) targetRarity = 'Rare';
 
-        // Cari manager dengan rarity tersebut
-        let targets = availableManagers.filter(m => m.rarity === targetRarity);
-        
-        // Fallback jika tidak ada manager dengan rarity itu yang tersisa, ambil apa saja yang ada
-        if (targets.length === 0) {
-            targets = availableManagers; 
-        }
+        // Filter manager berdasarkan rarity target
+        let targets = allManagers.filter(m => m.rarity === targetRarity);
+        if (targets.length === 0) targets = allManagers; // Fallback
 
+        // Pilih random
         const selectedManager = targets[Math.floor(Math.random() * targets.length)];
         const mgrIndex = state.managers.findIndex(m => m.id === selectedManager.id);
-        
         const newManagers = [...state.managers];
-        newManagers[mgrIndex] = { ...selectedManager, hired: true };
+        const currentMgr = newManagers[mgrIndex];
+
+        let message = "";
+        
+        if (!currentMgr.hired) {
+            // Kalau belum punya -> HIRE
+            newManagers[mgrIndex] = { ...currentMgr, hired: true, level: 1 };
+            message = `You hired ${currentMgr.name}!`;
+        } else {
+            // Kalau sudah punya -> GRATIS LEVEL UP (Duplicate bonus)
+            newManagers[mgrIndex] = { ...currentMgr, level: (currentMgr.level || 1) + 1 };
+            message = `Duplicate! ${currentMgr.name} Leveled Up!`;
+        }
 
         triggerHaptic('heavy');
         set({ 
@@ -376,8 +378,9 @@ export const useGameStore = create<GameState>()(
             managers: newManagers 
         });
 
-        return { success: true, manager: selectedManager };
-      },
+        // Return manager object untuk ditampilkan di kartu
+        return { success: true, manager: newManagers[mgrIndex], message };
+    },
 
       upgradeManager: (managerId) => set((state) => {
         const mgrIndex = state.managers.findIndex(m => m.id === managerId);
@@ -517,20 +520,32 @@ export const useGameStore = create<GameState>()(
       prestige: () => set((state) => {
         const potentialInvestors = Math.floor(Math.sqrt(state.lifetimeEarnings / 10000));
         const newInvestorsClaimed = potentialInvestors - state.investors;
-        if (newInvestorsClaimed <= 0) return state;
+        
+        if (newInvestorsClaimed <= 0) return state; // Cegah reset rugi
+        
         triggerHaptic('success');
+        
         return {
             money: 0,
-            lifetimeEarnings: 0,
+            // lifetimeEarnings: 0, // Opsi: Biasanya lifetime earnings JANGAN direset untuk achievement
             investors: state.investors + newInvestorsClaimed,
-            businesses: INITIAL_BUSINESSES,
-            managers: INITIAL_MANAGERS,
-            research: INITIAL_RESEARCH,
-            lastLogin: Date.now(),
-            gems: state.gems + 100,
-            activeEvent: null,
+            
+            // Reset bisnis ke awal
+            businesses: INITIAL_BUSINESSES, 
+            
+            // PENTING: JANGAN RESET MANAGER JIKA BELI PAKE GEMS!
+            // Kita pertahankan manager yang sudah di-hire, mungkin reset levelnya saja ke 1?
+            // Atau biarkan saja seperti state.managers agar terasa progresnya.
+            managers: state.managers, 
+            
+            research: INITIAL_RESEARCH, // Reset research karena logicnya pakai uang
             stocks: INITIAL_STOCKS, 
-            portfolio: {}
+            portfolio: {},
+            
+            // Bonus gems sedikit
+            gems: state.gems + 100, 
+            activeEvent: null,
+            lastLogin: Date.now(),
         };
       }),
 

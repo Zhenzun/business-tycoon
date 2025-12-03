@@ -11,6 +11,8 @@ export default function RootLayout() {
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
+        // UPDATE WAKTU LOGIN TERAKHIR SAAT KELUAR
+        useGameStore.getState().updateLastLogin(); 
         await syncToCloud();
       }
     };
