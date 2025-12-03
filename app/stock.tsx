@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, SafeAreaView, Modal, TextInput, ScrollView } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, SafeAreaView, Modal, TextInput, StatusBar } from 'react-native';
 import { useGameStore, Stock } from '../store/gameStore';
 import { formatCurrency } from '../utils/format';
-import { TrendingUp, TrendingDown, ArrowLeft, Briefcase, RefreshCcw } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { TrendingUp, TrendingDown, ArrowLeft } from 'lucide-react-native';
+import { useRouter, Stack } from 'expo-router'; // Tambah Stack
 import { ScaleButton } from '../components/ScaleButton';
-import { StockChart } from '../components/StockChart'; // Import Chart Component
+import { StockChart } from '../components/StockChart';
 
 export default function StockMarketScreen() {
   const router = useRouter();
@@ -42,12 +42,16 @@ export default function StockMarketScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-900">
-      {/* Header */}
+      {/* SEMBUNYIKAN HEADER BAWAAN EXPO ROUTER */}
+      <Stack.Screen options={{ headerShown: false }} />
+      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+
+      {/* Custom Header */}
       <View className="p-6 border-b border-slate-800 flex-row items-center justify-between bg-slate-900 z-10">
         <View className="flex-row items-center">
-            <TouchableOpacity onPress={() => router.back()} className="bg-slate-800 p-2 rounded-full mr-4 border border-slate-700">
+            <ScaleButton onPress={() => router.back()} className="bg-slate-800 p-2 rounded-full mr-4 border border-slate-700">
                 <ArrowLeft size={24} color="white" />
-            </TouchableOpacity>
+            </ScaleButton>
             <View>
                 <Text className="text-white font-bold text-2xl">Wall Street</Text>
                 <Text className="text-slate-400 text-xs">Portfolio: <Text className="text-emerald-400 font-bold">${formatCurrency(calculateTotalValue())}</Text></Text>
@@ -70,15 +74,15 @@ export default function StockMarketScreen() {
       <FlatList 
         data={stocks}
         keyExtractor={item => item.id}
-        contentContainerStyle={{ padding: 16 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         renderItem={({ item }) => {
             const isUp = item.price >= item.previousPrice;
             const owned = portfolio[item.id] || 0;
             const changePercent = ((item.price - item.previousPrice) / item.previousPrice) * 100;
-            const chartColor = isUp ? '#34d399' : '#f87171'; // Green or Red
+            const chartColor = isUp ? '#34d399' : '#f87171';
 
             return (
-                <TouchableOpacity 
+                <ScaleButton 
                     onPress={() => { setSelectedStock(item); setTradeAmount('1'); }}
                     className="bg-slate-800 p-4 rounded-2xl mb-4 border border-slate-700 overflow-hidden"
                 >
@@ -112,7 +116,7 @@ export default function StockMarketScreen() {
                             <Text className="text-white font-bold text-xs">{owned} Shares <Text className="text-slate-500">(${formatCurrency(owned * item.price)})</Text></Text>
                         </View>
                     )}
-                </TouchableOpacity>
+                </ScaleButton>
             );
         }}
       />
@@ -128,9 +132,9 @@ export default function StockMarketScreen() {
                                 <Text className="text-2xl font-bold text-white">{selectedStock.name}</Text>
                                 <Text className="text-slate-400 text-xs font-bold">{selectedStock.symbol}</Text>
                             </View>
-                            <TouchableOpacity onPress={() => setSelectedStock(null)} className="bg-slate-800 p-2 rounded-full border border-slate-700">
+                            <ScaleButton onPress={() => setSelectedStock(null)} className="bg-slate-800 p-2 rounded-full border border-slate-700">
                                 <Text className="text-white font-bold px-2">✕</Text>
-                            </TouchableOpacity>
+                            </ScaleButton>
                         </View>
 
                         <View className="mb-6 h-24 bg-slate-950 rounded-xl p-4 justify-end border border-slate-800">

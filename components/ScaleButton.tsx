@@ -1,9 +1,16 @@
 import React from 'react';
-import { TouchableWithoutFeedback } from 'react-native';
+import { TouchableWithoutFeedback, GestureResponderEvent } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { triggerHaptic } from '../utils/haptics';
 
-export const ScaleButton = ({ children, onPress, disabled, className }: any) => {
+interface ScaleButtonProps {
+  children: React.ReactNode;
+  onPress?: (event: GestureResponderEvent) => void;
+  disabled?: boolean;
+  className?: string;
+}
+
+export const ScaleButton = ({ children, onPress, disabled, className }: ScaleButtonProps) => {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -12,14 +19,16 @@ export const ScaleButton = ({ children, onPress, disabled, className }: any) => 
 
   const handlePressIn = () => {
     if (disabled) return;
-    scale.value = withSpring(0.95); // Menyusut sedikit saat ditekan
+    scale.value = withSpring(0.95); // Efek menyusut saat ditekan
   };
 
-  const handlePressOut = () => {
+  const handlePressOut = (event: GestureResponderEvent) => {
     if (disabled) return;
-    scale.value = withSpring(1); // Kembali ke ukuran semula (membal)
+    scale.value = withSpring(1); // Efek membal saat dilepas
     triggerHaptic('light');
-    if (onPress) onPress();
+    
+    // FIX: Meneruskan event sentuhan ke fungsi parent
+    if (onPress) onPress(event);
   };
 
   return (
