@@ -6,7 +6,7 @@ import { FloatingText } from '../../components/FloatingText';
 import { DailyRewardModal } from '../../components/DailyRewardModal'; 
 import { AchievementsModal } from '../../components/AchievementsModal';
 import { ResearchModal } from '../../components/ResearchModal';
-import { ManagersModal } from '../../components/ManagersModal';
+import { GachaSystemModal } from '../../components/GachaSystemModal'; // [UPDATE] Import Gacha
 import { BusinessCard } from '../../components/BusinessCard';
 import { ScaleButton } from '../../components/ScaleButton';
 import { triggerHaptic } from '../../utils/haptics';
@@ -45,9 +45,6 @@ export default function Dashboard() {
   }, []);
 
   const handleTap = (event: any) => {
-    // Hapus triggerHaptic di sini karena sudah dipindah ke ScaleButton agar tidak double getar
-    // triggerHaptic('light'); <--- HAPUS ATAU KOMENTARI INI
-    
     playSound('tap'); 
 
     const baseTapPower = 10;
@@ -56,7 +53,6 @@ export default function Dashboard() {
     addMoney(amount);
     registerTap();
 
-    // FIX: Gunakan lokasi default jika event tidak terbaca (misal di Android tertentu)
     const pageX = event?.nativeEvent?.pageX ?? 200;
     const pageY = event?.nativeEvent?.pageY ?? 400;
     
@@ -85,7 +81,7 @@ export default function Dashboard() {
       <View className="items-center justify-center py-8 bg-slate-900/50 mb-6 border-b border-white/5">
         <ScaleButton
           onPress={handleTap}
-          className="bg-gradient-to-b from-blue-500 to-blue-700 p-6 rounded-full border-[6px] border-blue-400/20 shadow-[0_0_40px_rgba(59,130,246,0.5)]"
+          className="bg-gradient-to-b from-blue-500 to-blue-700 p-6 rounded-full border-[6px] border-blue-400/20 shadow-[0_0_40px_rgba(59,130,246,0.5)] active:scale-95"
         >
           <CircleDollarSign size={72} color="white" />
         </ScaleButton>
@@ -113,12 +109,14 @@ export default function Dashboard() {
       <DailyRewardModal />
       <AchievementsModal visible={showAchievements} onClose={() => setShowAchievements(false)} />
       <ResearchModal visible={showResearch} onClose={() => setShowResearch(false)} />
-      <ManagersModal visible={showManagers} onClose={() => setShowManagers(false)} />
+      
+      {/* [UPDATE] Pakai Gacha System */}
+      <GachaSystemModal visible={showManagers} onClose={() => setShowManagers(false)} />
 
       {/* --- FIXED HEADER (Money & Menu) --- */}
       <View className="bg-slate-900 pt-2 pb-3 px-5 border-b border-slate-800 z-20 shadow-xl">
         
-        {/* EVENT BANNER (Jika Ada) */}
+        {/* EVENT BANNER */}
         {activeEvent && (
             <View className="bg-orange-500/10 border border-orange-500/50 rounded-lg p-1.5 mb-3 flex-row items-center justify-between">
                 <View className="flex-row items-center px-1">
@@ -147,7 +145,8 @@ export default function Dashboard() {
 
             {/* Menu Buttons Grid */}
             <View className="flex-row gap-2">
-                 <ScaleButton onPress={() => setShowManagers(true)} className="bg-slate-800 p-2 rounded-lg border border-slate-700 items-center justify-center w-10 h-10">
+                 {/* [UPDATE] Tombol Manager sekarang untuk Gacha */}
+                 <ScaleButton onPress={() => setShowManagers(true)} className="bg-slate-800 p-2 rounded-lg border border-purple-500/50 items-center justify-center w-10 h-10 shadow shadow-purple-500/20">
                     <Briefcase size={18} color="#a78bfa" />
                 </ScaleButton>
                 <ScaleButton onPress={() => setShowResearch(true)} className="bg-slate-800 p-2 rounded-lg border border-slate-700 items-center justify-center w-10 h-10">
@@ -187,7 +186,7 @@ export default function Dashboard() {
         }}
       />
 
-      {/* --- FLOATING TEXT ANIMATIONS (Z-INDEX TOP) --- */}
+      {/* --- FLOATING TEXT ANIMATIONS --- */}
       <View className="absolute inset-0 pointer-events-none z-50" pointerEvents="none">
         {animations.map((anim) => (
             <FloatingText key={anim.id} text={anim.text} x={anim.x} y={anim.y} onComplete={() => removeAnimation(anim.id)}/>

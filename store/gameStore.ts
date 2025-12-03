@@ -14,15 +14,19 @@ export type Business = {
   owned: boolean;
 };
 
+// [UPDATE] Tambah Rarity
+export type ManagerRarity = 'Common' | 'Rare' | 'Legendary';
+
 export type Manager = {
   id: string;
   name: string;
   description: string;
-  cost: number;
+  cost: number; // Cost sekarang hanya referensi value, hire pakai Gacha
   businessId: string;
   multiplier: number;
   hired: boolean;
   level: number;
+  rarity: ManagerRarity; // Field Baru
 };
 
 export type ResearchItem = {
@@ -58,7 +62,7 @@ export type Stock = {
   price: number;
   previousPrice: number;
   volatility: number;
-  history: number[]; // Riwayat harga untuk chart
+  history: number[];
 };
 
 // --- DATA DEFINITIONS ---
@@ -80,9 +84,9 @@ export type GameEvent = {
 
 const POSSIBLE_EVENTS: GameEvent[] = [
   { id: 'viral_marketing', name: '🔥 Viral Marketing', multiplier: 3, duration: 30 },
-  { id: 'market_boom', name: '📈 Market Boom', multiplier: 5, duration: 20 }, // New Event
+  { id: 'market_boom', name: '📈 Market Boom', multiplier: 5, duration: 20 },
   { id: 'investor_visit', name: '👼 Angel Investor Visit', multiplier: 2, duration: 60 },
-  { id: 'market_crash', name: '📉 Market Correction', multiplier: 0.5, duration: 15 }, // New Bad Event
+  { id: 'market_crash', name: '📉 Market Correction', multiplier: 0.5, duration: 15 },
 ];
 
 export const ACHIEVEMENT_DEFS = [
@@ -100,13 +104,14 @@ const INITIAL_BUSINESSES: Business[] = [
   { id: 'ai_core', name: 'AI Overlord', baseCost: 100000000000, baseRevenue: 5000000, level: 0, unlockCost: 100000000000, owned: false },
 ];
 
+// [UPDATE] Managers dengan Rarity
 const INITIAL_MANAGERS: Manager[] = [
-  { id: 'mgr_lemon', name: 'Kid Neighbor', description: 'x2 Lemonade Revenue', cost: 1000, businessId: 'lemonade', multiplier: 2, hired: false, level: 1 },
-  { id: 'mgr_bakery', name: 'Grandma', description: 'x3 Bakery Revenue', cost: 5000, businessId: 'bakery', multiplier: 3, hired: false, level: 1 },
-  { id: 'mgr_tech', name: 'Elon M.', description: 'x5 Startup Revenue', cost: 50000, businessId: 'tech_startup', multiplier: 5, hired: false, level: 1 },
-  { id: 'mgr_crypto', name: 'Satoshi', description: 'x8 Crypto Revenue', cost: 5000000, businessId: 'crypto_farm', multiplier: 8, hired: false, level: 1 },
-  { id: 'mgr_space', name: 'Starman', description: 'x10 Space Revenue', cost: 2000000000, businessId: 'space_agency', multiplier: 10, hired: false, level: 1 },
-  { id: 'mgr_ai', name: 'Skynet', description: 'x20 AI Revenue', cost: 500000000000, businessId: 'ai_core', multiplier: 20, hired: false, level: 1 },
+  { id: 'mgr_lemon', name: 'Kid Neighbor', description: 'x2 Lemonade Revenue', cost: 1000, businessId: 'lemonade', multiplier: 2, hired: false, level: 1, rarity: 'Common' },
+  { id: 'mgr_bakery', name: 'Grandma', description: 'x3 Bakery Revenue', cost: 5000, businessId: 'bakery', multiplier: 3, hired: false, level: 1, rarity: 'Common' },
+  { id: 'mgr_tech', name: 'Elon M.', description: 'x10 Startup Revenue', cost: 50000, businessId: 'tech_startup', multiplier: 10, hired: false, level: 1, rarity: 'Legendary' },
+  { id: 'mgr_crypto', name: 'Satoshi', description: 'x8 Crypto Revenue', cost: 5000000, businessId: 'crypto_farm', multiplier: 8, hired: false, level: 1, rarity: 'Rare' },
+  { id: 'mgr_space', name: 'Starman', description: 'x15 Space Revenue', cost: 2000000000, businessId: 'space_agency', multiplier: 15, hired: false, level: 1, rarity: 'Legendary' },
+  { id: 'mgr_ai', name: 'Skynet', description: 'x20 AI Revenue', cost: 500000000000, businessId: 'ai_core', multiplier: 20, hired: false, level: 1, rarity: 'Legendary' },
 ];
 
 const INITIAL_RESEARCH: ResearchItem[] = [
@@ -116,7 +121,6 @@ const INITIAL_RESEARCH: ResearchItem[] = [
   { id: 'res_quantum', name: 'Quantum Computing', description: 'Global Profit +100%', baseCost: 50000000, maxLevel: 3, multiplierPerLevel: 1.0, currentLevel: 0 },
 ];
 
-// Fill history with initial price for cleaner chart start
 const fillHistory = (price: number) => Array(20).fill(price);
 
 const INITIAL_STOCKS: Stock[] = [
@@ -152,7 +156,8 @@ interface GameState {
   registerTap: () => void;
   buyBusiness: (id: string) => void;
   upgradeBusiness: (id: string) => void;
-  hireManager: (managerId: string) => void;
+  // [UPDATE] Hire diganti Summon
+  summonManager: () => { success: boolean; manager?: Manager; message?: string };
   upgradeManager: (managerId: string) => void;
   buyResearch: (researchId: string) => void;
   buyAngelUpgrade: (id: string) => void;
@@ -211,23 +216,19 @@ export const useGameStore = create<GameState>()(
 
       tickStocks: () => set((state) => {
         const newStocks = state.stocks.map(stock => {
-            // 1. Basic Volatility
             let changePercent = (Math.random() * 2 - 1) * stock.volatility;
             
-            // 2. Event Influence (New Logic)
             if (state.activeEvent?.id === 'market_boom') {
-                changePercent += 0.03; // Bias positif kuat
+                changePercent += 0.03;
             } else if (state.activeEvent?.id === 'market_crash') {
-                changePercent -= 0.03; // Bias negatif kuat
+                changePercent -= 0.03;
             } else if (Math.random() < 0.1) {
-                // 3. Random 'Whale' movement (10% chance for bigger move)
                 changePercent *= 3;
             }
 
             let newPrice = stock.price * (1 + changePercent);
-            newPrice = Math.max(0.1, Math.min(newPrice, 10000)); // Hard limits
+            newPrice = Math.max(0.1, Math.min(newPrice, 10000));
             
-            // Simpan 20 data terakhir untuk grafik
             const newHistory = [...stock.history, newPrice].slice(-20);
 
             return { 
@@ -329,23 +330,63 @@ export const useGameStore = create<GameState>()(
         return state;
       }),
 
-      hireManager: (managerId) => set((state) => {
-        const mgrIndex = state.managers.findIndex(m => m.id === managerId);
-        const mgr = state.managers[mgrIndex];
-        if (state.money >= mgr.cost && !mgr.hired) {
-            triggerHaptic('heavy');
-            const newMgrs = [...state.managers];
-            newMgrs[mgrIndex] = { ...mgr, hired: true, level: 1 };
-            return { money: state.money - mgr.cost, managers: newMgrs };
+      // [UPDATE] Sistem Gacha Manager
+      summonManager: () => {
+        const state = get();
+        const COST = 100; // Harga 1x Gacha
+
+        if (state.gems < COST) {
+            return { success: false, message: "Not enough Gems!" };
         }
-        return state;
-      }),
+
+        // Filter manager yang belum di-hire
+        const availableManagers = state.managers.filter(m => !m.hired);
+        
+        // Jika semua sudah punya, upgrade level manager acak
+        if (availableManagers.length === 0) {
+            // Pilih acak untuk diberi level up gratis/bonus (opsional logic)
+            return { success: false, message: "All managers hired! (Prestige to reset)" };
+        }
+
+        // GACHA ALGORITHM (RNG)
+        const rand = Math.random();
+        let targetRarity: ManagerRarity = 'Common';
+        
+        if (rand > 0.95) targetRarity = 'Legendary'; // 5% chance
+        else if (rand > 0.70) targetRarity = 'Rare'; // 25% chance
+        // else Common (70%)
+
+        // Cari manager dengan rarity tersebut
+        let targets = availableManagers.filter(m => m.rarity === targetRarity);
+        
+        // Fallback jika tidak ada manager dengan rarity itu yang tersisa, ambil apa saja yang ada
+        if (targets.length === 0) {
+            targets = availableManagers; 
+        }
+
+        const selectedManager = targets[Math.floor(Math.random() * targets.length)];
+        const mgrIndex = state.managers.findIndex(m => m.id === selectedManager.id);
+        
+        const newManagers = [...state.managers];
+        newManagers[mgrIndex] = { ...selectedManager, hired: true };
+
+        triggerHaptic('heavy');
+        set({ 
+            gems: state.gems - COST, 
+            managers: newManagers 
+        });
+
+        return { success: true, manager: selectedManager };
+      },
 
       upgradeManager: (managerId) => set((state) => {
         const mgrIndex = state.managers.findIndex(m => m.id === managerId);
         const mgr = state.managers[mgrIndex];
         if (!mgr.hired) return state;
-        const upgradeCost = mgr.cost * 10 * mgr.level;
+        
+        // Cost upgrade manager sekarang pakai Money (bisa diubah ke Gems jika mau lebih hardcore)
+        const upgradeCost = mgr.cost * 10 * mgr.level; // Base cost as reference
+        
         if (state.money >= upgradeCost) {
             triggerHaptic('success');
             const newMgrs = [...state.managers];
@@ -488,7 +529,7 @@ export const useGameStore = create<GameState>()(
             lastLogin: Date.now(),
             gems: state.gems + 100,
             activeEvent: null,
-            stocks: INITIAL_STOCKS, // Reset stocks on prestige
+            stocks: INITIAL_STOCKS, 
             portfolio: {}
         };
       }),
@@ -506,7 +547,7 @@ export const useGameStore = create<GameState>()(
       }
     }),
     {
-      name: 'tycoon-storage-v15-events',
+      name: 'tycoon-storage-v16-god-tier', // Update version key
       storage: createJSONStorage(() => AsyncStorage),
     }
   )
