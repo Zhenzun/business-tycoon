@@ -7,15 +7,21 @@ import { DailyRewardModal } from '../../components/DailyRewardModal';
 import { AchievementsModal } from '../../components/AchievementsModal';
 import { ResearchModal } from '../../components/ResearchModal';
 import { GachaSystemModal } from '../../components/GachaSystemModal'; 
+import { MissionsModal } from '../../components/MissionsModal'; 
+import { DecisionModal } from '../../components/DecisionModal'; 
+import { AnalyticsModal } from '../../components/AnalyticsModal'; 
+import { ArtifactsModal } from '../../components/ArtifactsModal'; // [NEW]
+import { ComboMeter } from '../../components/ComboMeter'; 
 import { BusinessCard } from '../../components/BusinessCard';
 import { ScaleButton } from '../../components/ScaleButton';
 import { CEORoomModal } from '../../components/CEORoomModal';
 import { triggerHaptic } from '../../utils/haptics';
 import { formatCurrency } from '../../utils/format';
 import { loadSounds, playSound } from '../../utils/sound';
-import { Coins, Briefcase, Gem, Trophy, Flame, Microscope, CircleDollarSign, TrendingUp, Sun, CloudRain, CloudLightning, Zap, UserCog } from 'lucide-react-native';
+import { Coins, Briefcase, Gem, Trophy, Flame, Microscope, CircleDollarSign, TrendingUp, Sun, CloudRain, CloudLightning, Zap, UserCog, ClipboardList, PieChart, Crown } from 'lucide-react-native';
 import { Stack, useRouter } from 'expo-router';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient'; 
 
 type ActiveAnim = { id: number; text: string; x: number; y: number };
 
@@ -44,13 +50,16 @@ export default function Dashboard() {
     addMoney, upgradeBusiness, 
     calculateOfflineEarnings, registerTap, 
     getGlobalMultiplier, activeEvent, 
-    weather, newsTicker // [NEW] Get state
+    weather, newsTicker, checkMissions 
   } = useGameStore();
   
   const [animations, setAnimations] = useState<ActiveAnim[]>([]);
   const [showManagers, setShowManagers] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showResearch, setShowResearch] = useState(false);
+  const [showMissions, setShowMissions] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showArtifacts, setShowArtifacts] = useState(false); // [NEW]
   const [offlineEarnings, setOfflineEarnings] = useState(0);
   const [showCeoRoom, setShowCeoRoom] = useState(false);
 
@@ -72,16 +81,16 @@ export default function Dashboard() {
     const amount = baseTapPower * globalMult;
     addMoney(amount);
     registerTap();
+    checkMissions('EARN', amount);
 
     const pageX = event?.nativeEvent?.pageX ?? 200;
     const pageY = event?.nativeEvent?.pageY ?? 400;
     
     setAnimations((prev) => [
       ...prev,
-      { id, text: `+$${formatCurrency(amount)}`, x: pageX + (Math.random() - 0.5) * 60 - 20, y: pageY - 40 },
+      { id: Date.now(), text: `+$${formatCurrency(amount)}`, x: pageX + (Math.random() - 0.5) * 60 - 20, y: pageY - 40 },
     ]);
   };
-  const id = Date.now(); // moved out for key
 
   const removeAnimation = useCallback((id: number) => {
     setAnimations((prev) => prev.filter((a) => a.id !== id));
@@ -92,17 +101,23 @@ export default function Dashboard() {
       upgradeBusiness(id);
   }, []);
 
-  // --- COMPONENT: Bagian Atas List ---
+  const getWeatherGradient = (): [string, string] => {
+      switch (weather) {
+          case 'RAIN': return ['#1e293b', '#1e3a8a']; 
+          case 'STORM': return ['#0f172a', '#334155']; 
+          case 'GOLDEN_HOUR': return ['#451a03', '#b45309']; 
+          default: return ['#0f172a', '#1e293b']; 
+      }
+  };
+
   const ListHeader = () => (
     <View className="mb-6 px-4">
-      {/* NEWS TICKER [NEW] */}
       <View className="bg-black/30 mb-4 py-2 px-3 rounded-lg border border-white/5 overflow-hidden">
           <Text className="text-slate-400 text-xs font-mono" numberOfLines={1}>
               📰 {newsTicker}
           </Text>
       </View>
 
-      {/* WEATHER & BOOST WIDGET [NEW] */}
       <View className={`flex-row items-center justify-between p-3 rounded-xl border mb-6 ${getWeatherColor(weather)}`}>
           <View className="flex-row items-center">
               <WeatherIcon type={weather} />
@@ -116,7 +131,8 @@ export default function Dashboard() {
           </View>
       </View>
 
-      {/* CLICKER AREA */}
+      <ComboMeter />
+
       <View className="items-center justify-center mb-8">
         <ScaleButton
           onPress={handleTap}
@@ -138,117 +154,128 @@ export default function Dashboard() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-950">
-      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
-      <Stack.Screen options={{ headerShown: false }} />
+    <LinearGradient 
+        colors={getWeatherGradient()} 
+        style={{ flex: 1 }}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+    >
+      <SafeAreaView className="flex-1">
+        <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
+        <Stack.Screen options={{ headerShown: false }} />
 
-      <DailyRewardModal />
-      <AchievementsModal visible={showAchievements} onClose={() => setShowAchievements(false)} />
-      <ResearchModal visible={showResearch} onClose={() => setShowResearch(false)} />
-      <GachaSystemModal visible={showManagers} onClose={() => setShowManagers(false)} />
-      <CEORoomModal visible={showCeoRoom} onClose={() => setShowCeoRoom(false)} />
+        <DailyRewardModal />
+        <AchievementsModal visible={showAchievements} onClose={() => setShowAchievements(false)} />
+        <ResearchModal visible={showResearch} onClose={() => setShowResearch(false)} />
+        <GachaSystemModal visible={showManagers} onClose={() => setShowManagers(false)} />
+        <CEORoomModal visible={showCeoRoom} onClose={() => setShowCeoRoom(false)} />
+        <MissionsModal visible={showMissions} onClose={() => setShowMissions(false)} />
+        <DecisionModal /> 
+        <AnalyticsModal visible={showAnalytics} onClose={() => setShowAnalytics(false)} />
+        <ArtifactsModal visible={showArtifacts} onClose={() => setShowArtifacts(false)} /> {/* [NEW] */}
 
-      {/* --- FIXED HEADER --- */}
-      <View className="bg-slate-900/95 pt-2 pb-3 px-5 border-b border-slate-800 z-20 shadow-xl backdrop-blur-md">
-        
-        {/* EVENT BANNER (Override if Active) */}
-        {activeEvent && (
-            <Animated.View entering={FadeInUp} exiting={FadeOutUp} className="bg-orange-500/10 border border-orange-500/50 rounded-lg p-2 mb-3 flex-row items-center justify-between">
-                <View className="flex-row items-center px-1">
-                    <Flame size={14} color="#f97316" />
-                    <Text className="text-orange-400 font-bold ml-2 text-[10px] uppercase">{activeEvent.name} Active</Text>
+        <View className="bg-slate-900/95 pt-2 pb-3 px-5 border-b border-slate-800 z-20 shadow-xl backdrop-blur-md">
+            {activeEvent && (
+                <Animated.View entering={FadeInUp} exiting={FadeOutUp} className="bg-orange-500/10 border border-orange-500/50 rounded-lg p-2 mb-3 flex-row items-center justify-between">
+                    <View className="flex-row items-center px-1">
+                        <Flame size={14} color="#f97316" />
+                        <Text className="text-orange-400 font-bold ml-2 text-[10px] uppercase">{activeEvent.name} Active</Text>
+                    </View>
+                    <View className="bg-orange-500 px-2 py-0.5 rounded">
+                        <Text className="text-black font-extrabold text-[10px]">x{activeEvent.multiplier}</Text>
+                    </View>
+                </Animated.View>
+            )}
+
+            <View className="flex-row justify-between items-end">
+                <View>
+                    <Text className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Liquid Capital</Text>
+                    <View className="flex-row items-center">
+                        <Coins size={24} color="#FBBF24" />
+                        <Text className="text-white text-3xl font-black ml-2 tracking-tight">${formatCurrency(money)}</Text>
+                    </View>
+                    <View className="flex-row items-center mt-1 bg-purple-900/30 self-start px-2 py-0.5 rounded-full border border-purple-500/20">
+                        <Gem size={10} color="#d8b4fe" />
+                        <Text className="text-purple-200 text-[10px] font-bold ml-1">{formatCurrency(gems)}</Text>
+                    </View>
                 </View>
-                <View className="bg-orange-500 px-2 py-0.5 rounded">
-                    <Text className="text-black font-extrabold text-[10px]">x{activeEvent.multiplier}</Text>
+
+                {/* Menu Grid */}
+                <View className="flex-row flex-wrap justify-end gap-2 w-1/2">
+                    <ScaleButton onPress={() => setShowArtifacts(true)} className="bg-purple-600 p-2 rounded-xl border border-purple-400/50 items-center justify-center w-10 h-10 shadow-lg">
+                        <Crown size={18} color="white" />
+                    </ScaleButton>
+                    <ScaleButton onPress={() => setShowAnalytics(true)} className="bg-emerald-600 p-2 rounded-xl border border-emerald-400/50 items-center justify-center w-10 h-10 shadow-lg">
+                        <PieChart size={18} color="white" />
+                    </ScaleButton>
+                    <ScaleButton onPress={() => setShowMissions(true)} className="bg-indigo-600 p-2 rounded-xl border border-indigo-400/50 items-center justify-center w-10 h-10 shadow-lg">
+                        <ClipboardList size={18} color="white" />
+                    </ScaleButton>
+                    <ScaleButton onPress={() => setShowCeoRoom(true)} className="bg-blue-600 p-2 rounded-xl border border-blue-400/50 items-center justify-center w-10 h-10 shadow-lg shadow-blue-500/30">
+                        <UserCog size={18} color="white" />
+                    </ScaleButton>
+                    <ScaleButton onPress={() => setShowManagers(true)} className="bg-slate-800 p-2 rounded-xl border border-slate-700/50 items-center justify-center w-10 h-10">
+                        <Briefcase size={18} color="#a78bfa" />
+                    </ScaleButton>
+                    <ScaleButton onPress={() => router.push('/stock')} className="bg-slate-800 p-2 rounded-xl border border-slate-700/50 items-center justify-center w-10 h-10">
+                        <TrendingUp size={18} color="#34d399" />
+                    </ScaleButton>
                 </View>
-            </Animated.View>
-        )}
-
-        <View className="flex-row justify-between items-end">
-            <View>
-                <Text className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Liquid Capital</Text>
-                <View className="flex-row items-center">
-                    <Coins size={24} color="#FBBF24" />
-                    <Text className="text-white text-3xl font-black ml-2 tracking-tight">${formatCurrency(money)}</Text>
-                </View>
-                <View className="flex-row items-center mt-1 bg-purple-900/30 self-start px-2 py-0.5 rounded-full border border-purple-500/20">
-                    <Gem size={10} color="#d8b4fe" />
-                    <Text className="text-purple-200 text-[10px] font-bold ml-1">{formatCurrency(gems)}</Text>
-                </View>
-            </View>
-
-            {/* Menu Grid */}
-            <View className="flex-row gap-2">
-                <ScaleButton onPress={() => setShowCeoRoom(true)} className="bg-blue-600 p-2.5 rounded-xl border border-blue-400/50 items-center justify-center w-11 h-11 shadow-lg shadow-blue-500/30">
-                    <UserCog size={20} color="white" />
-                </ScaleButton>
-                <ScaleButton onPress={() => setShowManagers(true)} className="bg-slate-800 p-2.5 rounded-xl border border-slate-700/50 items-center justify-center w-11 h-11">
-                    <Briefcase size={20} color="#a78bfa" />
-                </ScaleButton>
-                <ScaleButton onPress={() => setShowResearch(true)} className="bg-slate-800 p-2.5 rounded-xl border border-slate-700/50 items-center justify-center w-11 h-11">
-                    <Microscope size={20} color="#60a5fa" />
-                </ScaleButton>
-                <ScaleButton onPress={() => router.push('/stock')} className="bg-slate-800 p-2.5 rounded-xl border border-slate-700/50 items-center justify-center w-11 h-11">
-                    <TrendingUp size={20} color="#34d399" />
-                </ScaleButton>
-                <ScaleButton onPress={() => setShowAchievements(true)} className="bg-slate-800 p-2.5 rounded-xl border border-slate-700/50 items-center justify-center w-11 h-11">
-                    <Trophy size={20} color="#fbbf24" />
-                </ScaleButton>
-            </View>
-        </View>
-      </View>
-
-      <FlatList
-        data={businesses.filter((b) => b.owned)}
-        ListHeaderComponent={ListHeader}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        className="pt-4"
-        renderItem={({ item }) => {
-          const activeManager = managers.find(m => m.businessId === item.id && m.hired);
-          const mgrMult = activeManager ? activeManager.multiplier * (activeManager.level || 1) : 1;
-
-          return (
-            <View className="px-4">
-                <BusinessCard 
-                item={item}
-                money={money}
-                onUpgrade={handleUpgradeBusiness}
-                globalMultiplier={globalMult}
-                managerMultiplier={mgrMult}
-                />
-            </View>
-          );
-        }}
-      />
-
-      <View className="absolute inset-0 pointer-events-none z-50" pointerEvents="none">
-        {animations.map((anim) => (
-            <FloatingText key={anim.id} text={anim.text} x={anim.x} y={anim.y} onComplete={() => removeAnimation(anim.id)}/>
-        ))}
-      </View>
-
-      {/* Offline Earnings */}
-      <Modal visible={offlineEarnings > 0} transparent animationType="fade">
-        <View className="flex-1 bg-black/90 items-center justify-center px-6">
-            <View className="bg-slate-900 w-full p-6 rounded-[32px] border border-emerald-500/30 items-center shadow-2xl">
-                <View className="bg-emerald-500/20 p-4 rounded-full mb-4">
-                    <Coins size={40} color="#34d399" />
-                </View>
-                <Text className="text-white text-2xl font-bold text-center mb-2">While you were away...</Text>
-                <Text className="text-slate-400 text-center mb-8">Your automated businesses kept working.</Text>
-                
-                <View className="bg-slate-950 w-full py-8 rounded-2xl border border-slate-800 mb-8 items-center">
-                    <Text className="text-5xl font-black text-emerald-400 tracking-tighter">+${formatCurrency(offlineEarnings)}</Text>
-                </View>
-                
-                <ScaleButton onPress={() => { triggerHaptic('success'); playSound('cash'); setOfflineEarnings(0); }} className="bg-emerald-500 w-full py-4 rounded-2xl items-center shadow-lg shadow-emerald-500/20">
-                    <Text className="text-slate-900 font-extrabold text-lg tracking-wider">CLAIM PROFITS</Text>
-                </ScaleButton>
             </View>
         </View>
-      </Modal>
-    </SafeAreaView>
+
+        <FlatList
+            data={businesses.filter((b) => b.owned)}
+            ListHeaderComponent={ListHeader}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 100 }}
+            className="pt-4"
+            renderItem={({ item }) => {
+            const activeManager = managers.find(m => m.businessId === item.id && m.hired);
+            const mgrMult = activeManager ? activeManager.multiplier * (activeManager.level || 1) : 1;
+
+            return (
+                <View className="px-4">
+                    <BusinessCard 
+                    item={item}
+                    money={money}
+                    onUpgrade={handleUpgradeBusiness}
+                    globalMultiplier={globalMult}
+                    managerMultiplier={mgrMult}
+                    />
+                </View>
+            );
+            }}
+        />
+
+        <View className="absolute inset-0 pointer-events-none z-50" pointerEvents="none">
+            {animations.map((anim) => (
+                <FloatingText key={anim.id} text={anim.text} x={anim.x} y={anim.y} onComplete={() => removeAnimation(anim.id)}/>
+            ))}
+        </View>
+
+        {/* Offline Earnings */}
+        <Modal visible={offlineEarnings > 0} transparent animationType="fade">
+            <View className="flex-1 bg-black/90 items-center justify-center px-6">
+                <View className="bg-slate-900 w-full p-6 rounded-[32px] border border-emerald-500/30 items-center shadow-2xl">
+                    <View className="bg-emerald-500/20 p-4 rounded-full mb-4">
+                        <Coins size={40} color="#34d399" />
+                    </View>
+                    <Text className="text-white text-2xl font-bold text-center mb-2">While you were away...</Text>
+                    <Text className="text-slate-400 text-center mb-8">Your automated businesses kept working.</Text>
+                    
+                    <View className="bg-slate-950 w-full py-8 rounded-2xl border border-slate-800 mb-8 items-center">
+                        <Text className="text-5xl font-black text-emerald-400 tracking-tighter">+${formatCurrency(offlineEarnings)}</Text>
+                    </View>
+                    
+                    <ScaleButton onPress={() => { triggerHaptic('success'); playSound('cash'); setOfflineEarnings(0); }} className="bg-emerald-500 w-full py-4 rounded-2xl items-center shadow-lg shadow-emerald-500/20">
+                        <Text className="text-slate-900 font-extrabold text-lg tracking-wider">CLAIM PROFITS</Text>
+                    </ScaleButton>
+                </View>
+            </View>
+        </Modal>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }

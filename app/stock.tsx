@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, SafeAreaView, Modal, TextInput, StatusBar } from 'react-native';
 import { useGameStore, Stock } from '../store/gameStore';
 import { formatCurrency } from '../utils/format';
-import { TrendingUp, TrendingDown, ArrowLeft } from 'lucide-react-native';
-import { useRouter, Stack } from 'expo-router'; // Tambah Stack
+import { TrendingUp, TrendingDown, ArrowLeft, Minus } from 'lucide-react-native';
+import { useRouter, Stack } from 'expo-router'; 
 import { ScaleButton } from '../components/ScaleButton';
 import { StockChart } from '../components/StockChart';
 
@@ -15,7 +15,6 @@ export default function StockMarketScreen() {
   const [tradeAmount, setTradeAmount] = useState('1');
   const [marketNews, setMarketNews] = useState("Market is stable.");
 
-  // Efek samping event terhadap berita
   useEffect(() => {
       if (activeEvent?.id === 'market_boom') setMarketNews("BULL RUN! Stocks are soaring!");
       else if (activeEvent?.id === 'market_crash') setMarketNews("PANIC! Market is crashing!");
@@ -42,7 +41,6 @@ export default function StockMarketScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-900">
-      {/* SEMBUNYIKAN HEADER BAWAAN EXPO ROUTER */}
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
 
@@ -81,6 +79,12 @@ export default function StockMarketScreen() {
             const changePercent = ((item.price - item.previousPrice) / item.previousPrice) * 100;
             const chartColor = isUp ? '#34d399' : '#f87171';
 
+            // [NEW] Trend Icon Logic
+            let TrendIcon = Minus;
+            let trendColor = "#94a3b8"; 
+            if (item.trend === 'BULL') { TrendIcon = TrendingUp; trendColor = "#34d399"; }
+            if (item.trend === 'BEAR') { TrendIcon = TrendingDown; trendColor = "#f87171"; }
+
             return (
                 <ScaleButton 
                     onPress={() => { setSelectedStock(item); setTradeAmount('1'); }}
@@ -93,7 +97,13 @@ export default function StockMarketScreen() {
                             </View>
                             <View>
                                 <Text className="text-white font-bold text-lg">{item.symbol}</Text>
-                                <Text className="text-slate-400 text-xs">{item.name}</Text>
+                                {/* [NEW] Trend Indicator */}
+                                <View className="flex-row items-center mt-0.5">
+                                    <TrendIcon size={12} color={trendColor} />
+                                    <Text style={{color: trendColor}} className="text-[10px] font-bold ml-1 uppercase">
+                                        {item.trend} ({item.trendDuration}s)
+                                    </Text>
+                                </View>
                             </View>
                         </View>
                         <View className="items-end">

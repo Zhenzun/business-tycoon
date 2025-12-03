@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, SafeAreaView, Alert, ActivityIndicator, ScrollView, Switch } from 'react-native';
+import { View, Text, SafeAreaView, Alert, ActivityIndicator, ScrollView, Switch, TextInput, TouchableOpacity, Share } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'expo-router';
 import { useGameStore } from '../../store/gameStore';
@@ -8,20 +8,22 @@ import { ScaleButton } from '../../components/ScaleButton';
 import { triggerHaptic } from '../../utils/haptics';
 import { playSound } from '../../utils/sound';
 import { Confetti } from '../../components/Confetti';
-import { AngelShopModal } from '../../components/AngelShopModal';
-import { LogOut, CloudUpload, User as UserIcon, TrendingUp, AlertTriangle, Settings, Volume2, VolumeX, Smartphone, Crown, Activity } from 'lucide-react-native';
+import { PrestigeModal } from '../../components/PrestigeModal'; // [UPDATED]
+import { LogOut, CloudUpload, TrendingUp, Settings, Volume2, VolumeX, Smartphone, Crown, Activity, Save, Download } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { 
-    money, investors, lifetimeEarnings, prestige, stats, 
-    settings, toggleSfx, toggleHaptics 
+    investors, lifetimeEarnings, prestige, stats, 
+    settings, toggleSfx, toggleHaptics, loadSaveData, exportSaveData 
   } = useGameStore();
   
   const [userEmail, setUserEmail] = useState<string | null>('Guest');
   const [loading, setLoading] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [showAngelShop, setShowAngelShop] = useState(false);
+  const [showPrestigeShop, setShowPrestigeShop] = useState(false); // [UPDATED]
+  const [importString, setImportString] = useState('');
+  const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -35,10 +37,38 @@ export default function ProfileScreen() {
     router.replace('/auth');
   };
 
-  const handleManualSync = async () => {
-      triggerHaptic('light');
-      setLoading(true);
-      setTimeout(() => { setLoading(false); Alert.alert("Synced", "Data saved securely!"); }, 800);
+  const handleExportSave = async () => {
+      const saveString = exportSaveData();
+      try {
+          await Share.share({
+              message: saveString,
+              title: "Tycoon Idle Save Data"
+          });
+      } catch (error) {
+          Alert.alert("Error", "Could not share save data.");
+      }
+  };
+
+  const handleImportSave = () => {
+      if (!importString) return;
+      
+      Alert.alert(
+          "Warning",
+          "Importing data will OVERWRITE your current progress. Are you sure?",
+          [
+              { text: "Cancel", style: "cancel" },
+              { text: "Overwrite", style: "destructive", onPress: () => {
+                  const success = loadSaveData(importString);
+                  if (success) {
+                      Alert.alert("Success", "Save data loaded!");
+                      setShowImport(false);
+                      setImportString("");
+                  } else {
+                      Alert.alert("Error", "Invalid save string.");
+                  }
+              }}
+          ]
+      );
   };
 
   const potentialInvestors = Math.floor(Math.sqrt(lifetimeEarnings / 10000)); 
@@ -71,7 +101,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView className="screen-container relative">
       {showConfetti && <Confetti active={true} />}
-      <AngelShopModal visible={showAngelShop} onClose={() => setShowAngelShop(false)} />
+      <PrestigeModal visible={showPrestigeShop} onClose={() => setShowPrestigeShop(false)} /> {/* [UPDATED] */}
 
       <ScrollView contentContainerStyle={{padding: 24}}>
         <Text className="text-header mb-8">HQ & Settings</Text>
@@ -96,6 +126,41 @@ export default function ProfileScreen() {
                 </View>
                 <Switch value={settings.haptics} onValueChange={toggleHaptics} trackColor={{ false: "#334155", true: "#2563eb" }} thumbColor={settings.haptics ? "#60a5fa" : "#94a3b8"} />
             </View>
+        </View>
+
+        {/* DATA MANAGEMENT CARD */}
+        <View className="bg-slate-800 p-5 rounded-2xl border border-slate-700 mb-6">
+            <View className="flex-row items-center mb-4 pb-2 border-b border-white/5">
+                <Save size={20} color="#34d399" />
+                <Text className="text-slate-300 font-bold ml-2 text-lg">Data Management</Text>
+            </View>
+            
+            <View className="flex-row space-x-3 mb-4">
+                <ScaleButton onPress={handleExportSave} className="flex-1 bg-blue-600 py-3 rounded-xl items-center flex-row justify-center">
+                    <CloudUpload size={16} color="white" />
+                    <Text className="text-white font-bold ml-2">Export Save</Text>
+                </ScaleButton>
+                <ScaleButton onPress={() => setShowImport(!showImport)} className="flex-1 bg-slate-700 py-3 rounded-xl items-center flex-row justify-center">
+                    <Download size={16} color="white" />
+                    <Text className="text-white font-bold ml-2">Import</Text>
+                </ScaleButton>
+            </View>
+
+            {showImport && (
+                <View>
+                    <TextInput 
+                        value={importString}
+                        onChangeText={setImportString}
+                        placeholder="Paste save string here..."
+                        placeholderTextColor="#64748b"
+                        className="bg-slate-900 text-white p-3 rounded-lg border border-slate-600 mb-2 h-20"
+                        multiline
+                    />
+                    <ScaleButton onPress={handleImportSave} className="bg-red-600 py-2 rounded-lg items-center">
+                        <Text className="text-white font-bold">LOAD DATA</Text>
+                    </ScaleButton>
+                </View>
+            )}
         </View>
 
         {/* STATS OVERVIEW */}
@@ -140,11 +205,11 @@ export default function ProfileScreen() {
                 {/* TWO BUTTONS: PRESTIGE & SHOP */}
                 <View className="flex-row space-x-3">
                     <ScaleButton 
-                        onPress={() => setShowAngelShop(true)}
+                        onPress={() => setShowPrestigeShop(true)}
                         className="flex-1 bg-slate-800 py-4 rounded-xl items-center flex-row justify-center border border-amber-500/30"
                     >
                         <Crown size={18} color="#fbbf24" style={{marginRight:6}}/>
-                        <Text className="text-amber-400 font-bold text-xs">ANGEL SHOP</Text>
+                        <Text className="text-amber-400 font-bold text-xs">PRESTIGE SHOP</Text>
                     </ScaleButton>
 
                     <ScaleButton 
@@ -160,19 +225,11 @@ export default function ProfileScreen() {
             </View>
         </View>
 
-        {/* MENU ACTIONS */}
-        <View className="space-y-3">
-          <ScaleButton onPress={handleManualSync} disabled={loading} className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex-row items-center active:bg-slate-700">
-            <CloudUpload size={20} color="#94a3b8" />
-            <Text className="text-slate-300 font-bold ml-4">Force Cloud Save</Text>
-            {loading && <ActivityIndicator color="white" className="ml-auto" />}
-          </ScaleButton>
-
-          <ScaleButton onPress={handleLogout} className="bg-red-900/10 p-4 rounded-xl border border-red-900/30 flex-row items-center active:bg-red-900/20">
+        {/* LOGOUT */}
+        <ScaleButton onPress={handleLogout} className="bg-red-900/10 p-4 rounded-xl border border-red-900/30 flex-row items-center active:bg-red-900/20 mb-10">
             <LogOut size={20} color="#ef4444" />
             <Text className="text-red-400 font-bold ml-4">Retire (Logout)</Text>
-          </ScaleButton>
-        </View>
+        </ScaleButton>
       </ScrollView>
     </SafeAreaView>
   );
