@@ -13,6 +13,7 @@ export const ComboMeter = () => {
   const { combo, maxCombo } = useGameStore();
   const progressWidth = useSharedValue(0);
   const scale = useSharedValue(1);
+  const opacity = useSharedValue(0); // 1. Tambahkan state animasi opacity
 
   // Normalisasi progress (0 - 100%)
   const percentage = Math.min(100, (combo / maxCombo) * 100);
@@ -26,18 +27,23 @@ export const ComboMeter = () => {
     } else {
         scale.value = withTiming(1);
     }
+
+    // 2. Logika Opacity: Jika combo > 0 tampil (1), jika 0 sembunyi tapi tetap memakan tempat (0)
+    opacity.value = withTiming(combo > 0 ? 1 : 0, { duration: 200 });
+
   }, [combo]);
 
   const barStyle = useAnimatedStyle(() => ({
     width: `${progressWidth.value}%`,
-    backgroundColor: percentage >= 100 ? '#fbbf24' : '#3b82f6' // Gold jika max, Biru jika biasa
+    backgroundColor: percentage >= 100 ? '#fbbf24' : '#3b82f6' 
   }));
 
   const containerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }]
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value // 3. Terapkan opacity ke container
   }));
 
-  if (combo === 0) return null;
+  // 4. PENTING: Baris "if (combo === 0) return null;" DIHAPUS agar layout tidak naik turun!
 
   return (
     <Animated.View style={[styles.container, containerStyle]}>
@@ -65,6 +71,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
+    minHeight: 60, // 5. Tambahkan minHeight agar ukurannya konsisten (tempat 'dipesan')
+    justifyContent: 'center', // Agar konten tetap di tengah
   },
   infoRow: {
     flexDirection: 'row',

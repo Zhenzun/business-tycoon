@@ -143,7 +143,6 @@ export const SYNERGIES = [
     { id: 'syn_future', name: 'Future Tech', businesses: ['space_agency', 'ai_core'], multiplier: 3.0 },
 ];
 
-// [UPDATE] More Artifacts
 const INITIAL_ARTIFACTS: Artifact[] = [
     { id: 'art_coin', name: 'Ancient Coin', description: 'Global Profit x1.5', owned: false, effectType: 'global_mult', value: 1.5, rarity: 'Common' },
     { id: 'art_cat', name: 'Lucky Cat', description: 'Event Luck +10%', owned: false, effectType: 'luck_boost', value: 0.1, rarity: 'Rare' },
@@ -213,6 +212,58 @@ export const ANGEL_UPGRADES: AngelUpgrade[] = [
   { id: 'au_5', name: 'God Mode', description: 'All Profit x10', cost: 10000, effectType: 'profit_mult', value: 10 },
 ];
 
+// [FIX] Pindahkan Definisi Event Decision ke LUAR store agar fungsi tidak hilang karena persistensi
+const DECISION_REGISTRY: DecisionEvent[] = [
+    { 
+        id: 'tax_audit', 
+        title: '📢 Tax Audit!', 
+        description: 'IRS is knocking on your door.', 
+        options: [
+            { 
+                label: 'Pay Fine ($5k)', 
+                effect: (s) => { 
+                    if(s.money >= 5000) { s.addMoney(-5000); s.showToast("Paid the fine.", "info"); } 
+                    else s.showToast("Not enough money!", "warning"); 
+                } 
+            }, 
+            { 
+                label: 'Hire Lawyer (50 Gems)', 
+                cost: 50, 
+                effect: (s) => { 
+                    if(s.gems >= 50) { s.addGems(-50); s.showToast("Lawyer handled it.", "success"); } 
+                    else s.showToast("Not enough gems!", "warning"); 
+                } 
+            }, 
+            { 
+                label: 'Bribe (Risky)', 
+                risk: 0.5, 
+                effect: (s) => { s.showToast("Bribe Accepted.", "warning"); } 
+            }
+        ] 
+    }, 
+    { 
+        id: 'viral_trend', 
+        title: '📱 Viral Opportunity', 
+        description: 'A TikTok trend fits your product.', 
+        options: [
+            { 
+                label: 'Ignore', 
+                effect: (s) => s.showToast("Safe play.", "info") 
+            }, 
+            { 
+                label: 'Boost (50 Gems)', 
+                effect: (s) => { 
+                    if (s.gems >= 50) { 
+                        s.addGems(-50); 
+                        s.activeEvent = { id: 'viral', name: 'Viral Hype', multiplier: 5, duration: 20, startTime: Date.now() }; 
+                        s.showToast("x5 Profit!", "success"); 
+                    } else s.showToast("No gems!", "warning"); 
+                } 
+            }
+        ] 
+    }
+];
+
 interface GameState {
   money: number;
   gems: number;
@@ -277,7 +328,7 @@ interface GameState {
   changeWeather: () => void;
   upgradeCeoSkill: (skillId: string) => void;
   findArtifact: () => void; 
-  discoverArtifact: () => { success: boolean; artifact?: Artifact; message?: string }; // [NEW]
+  discoverArtifact: () => { success: boolean; artifact?: Artifact; message?: string }; 
   checkMissions: (type: MissionType, amount: number) => void; 
   claimMission: (id: string) => void; 
   refreshMissions: () => void; 
@@ -285,7 +336,7 @@ interface GameState {
   loadSaveData: (data: string) => boolean; 
   decayCombo: () => void;
   getAnalyticsData: () => { labels: string[], data: number[] };
-  exportSaveData: () => string; // [NEW]
+  exportSaveData: () => string; 
 }
 
 export const useGameStore = create<GameState>()(
@@ -322,17 +373,15 @@ export const useGameStore = create<GameState>()(
 
       updateLastLogin: () => set({ lastLogin: Date.now() }),
 
-      // [NEW] Artifact Gacha
       discoverArtifact: () => {
           const state = get();
-          const COST = 250; // Gems cost
+          const COST = 250; 
           
           if (state.gems < COST) return { success: false, message: "Not enough Gems!" };
           
           const unowned = state.artifacts.filter(a => !a.owned);
           if (unowned.length === 0) return { success: false, message: "You found all artifacts!" };
 
-          // Logic Gacha Sederhana (Random dari yang belum punya)
           const found = unowned[Math.floor(Math.random() * unowned.length)];
           
           const newArts = state.artifacts.map(a => a.id === found.id ? { ...a, owned: true } : a);
@@ -342,7 +391,6 @@ export const useGameStore = create<GameState>()(
           return { success: true, artifact: found };
       },
 
-      // [NEW] Better Save Export
       exportSaveData: () => {
           const state = get();
           const saveObj = {
@@ -350,7 +398,6 @@ export const useGameStore = create<GameState>()(
               timestamp: Date.now(),
               data: state
           };
-          // Simple salt + base64 to prevent easy editing
           const json = JSON.stringify(saveObj);
           const encoded = btoa(json);
           return `TYCOON-${encoded}`;
@@ -363,7 +410,6 @@ export const useGameStore = create<GameState>()(
               const parsed = JSON.parse(decoded);
               
               if (parsed.version && parsed.data) {
-                  // Merge data to avoid missing fields in future updates
                   set((state) => ({ ...state, ...parsed.data }));
                   triggerHaptic('success');
                   return true;
@@ -375,7 +421,6 @@ export const useGameStore = create<GameState>()(
           }
       },
 
-      // --- EXISTING LOGIC ---
       getBusinessRevenue: (id: string) => {
           const state = get();
           const biz = state.businesses.find(b => b.id === id);
@@ -418,6 +463,37 @@ export const useGameStore = create<GameState>()(
         return investorMult * researchMult * eventMult * angelMult * weatherMult * skillBonus * artBonus * comboBonus;
       },
 
+      calculateOfflineEarnings: () => {
+        const state = get();
+        const now = Date.now();
+        const secondsOffline = (now - state.lastLogin) / 1000;
+
+        if (secondsOffline < 60) return 0;
+
+        let incomePerSec = 0;
+        state.businesses.forEach(b => {
+            if (b.owned) {
+                incomePerSec += state.getBusinessRevenue(b.id);
+            }
+        });
+
+        const globalMult = state.getGlobalMultiplier();
+        const maxOfflineSecs = 24 * 60 * 60; 
+        const effectiveTime = Math.min(secondsOffline, maxOfflineSecs);
+
+        const earnings = Math.floor(incomePerSec * globalMult * effectiveTime);
+
+        if (earnings > 0) {
+            set((state) => ({
+                money: state.money + earnings,
+                lifetimeEarnings: state.lifetimeEarnings + earnings,
+            }));
+        }
+        
+        set({ lastLogin: now });
+        return earnings;
+      },
+
       decayCombo: () => set((state) => {
           if (state.combo > 0) {
               const decayAmount = Math.max(1, Math.floor(state.combo * 0.05));
@@ -439,7 +515,6 @@ export const useGameStore = create<GameState>()(
           return { labels, data };
       },
 
-      // ... (Other actions: addMoney, buyBusiness, etc. same as v1.4 - ensure full copy)
       addMoney: (amount) => set((state) => {
         const xpGained = Math.max(1, Math.floor(amount / 100)); 
         let newXp = state.ceo.xp + xpGained;
@@ -462,9 +537,61 @@ export const useGameStore = create<GameState>()(
       sellStock: (stockId, amount) => set((state) => { const stock = state.stocks.find(s => s.id === stockId); if (!stock) return state; const currentQty = state.portfolio[stockId] || 0; if (currentQty >= amount) { triggerHaptic('success'); const totalRevenue = stock.price * amount; return { money: state.money + totalRevenue, portfolio: { ...state.portfolio, [stockId]: currentQty - amount } }; } return state; }),
       toggleSfx: () => set((state) => ({ settings: { ...state.settings, sfx: !state.settings.sfx } })),
       toggleHaptics: () => { const state = get(); const newVal = !state.settings.haptics; if (newVal) triggerHaptic('light'); set({ settings: { ...state.settings, haptics: newVal } }); },
-      triggerRandomEvent: () => { const state = get(); if (state.activeEvent || state.activeDecision) return; const rand = Math.random(); if (rand < 0.5) { const randomIdx = Math.floor(Math.random() * POSSIBLE_EVENTS.length); const event = POSSIBLE_EVENTS[randomIdx]; set({ activeEvent: { ...event, startTime: Date.now() } }); get().showToast(`${event.name} Active! (x${event.multiplier})`, 'warning'); triggerHaptic('success'); } else { state.triggerDecision(); } },
-      triggerDecision: () => { const state = get(); if (state.activeDecision || state.activeEvent) return; const events: DecisionEvent[] = [{ id: 'tax_audit', title: '📢 Tax Audit!', description: 'IRS is knocking on your door.', options: [{ label: 'Pay Fine ($5k)', effect: (s) => { if(s.money >= 5000) { s.addMoney(-5000); s.showToast("Paid the fine.", "info"); } else s.showToast("Not enough money!", "warning"); } }, { label: 'Hire Lawyer (50 Gems)', cost: 50, effect: (s) => { if(s.gems >= 50) { s.addGems(-50); s.showToast("Lawyer handled it.", "success"); } else s.showToast("Not enough gems!", "warning"); } }, { label: 'Bribe (Risky)', risk: 0.5, effect: (s) => { s.showToast("Bribe Accepted.", "warning"); } }] }, { id: 'viral_trend', title: '📱 Viral Opportunity', description: 'A TikTok trend fits your product.', options: [{ label: 'Ignore', effect: (s) => s.showToast("Safe play.", "info") }, { label: 'Boost (50 Gems)', effect: (s) => { if (s.gems >= 50) { s.addGems(-50); s.activeEvent = { id: 'viral', name: 'Viral Hype', multiplier: 5, duration: 20, startTime: Date.now() }; s.showToast("x5 Profit!", "success"); } else s.showToast("No gems!", "warning"); } }] }]; const randomEvent = events[Math.floor(Math.random() * events.length)]; set({ activeDecision: randomEvent }); },
-      resolveDecision: (optionIndex) => { const state = get(); if (!state.activeDecision) return; const option = state.activeDecision.options[optionIndex]; if (option.risk) { const roll = Math.random(); if (roll < option.risk) { triggerHaptic('error'); get().showToast("Backfired!", "warning"); set({ money: Math.max(0, state.money * 0.9) }); } else { triggerHaptic('success'); option.effect(state); } } else { triggerHaptic('light'); option.effect(state); } set({ activeDecision: null }); },
+      
+      triggerRandomEvent: () => { 
+          const state = get(); 
+          if (state.activeEvent || state.activeDecision) return; 
+          const rand = Math.random(); 
+          if (rand < 0.5) { 
+              const randomIdx = Math.floor(Math.random() * POSSIBLE_EVENTS.length); 
+              const event = POSSIBLE_EVENTS[randomIdx]; 
+              set({ activeEvent: { ...event, startTime: Date.now() } }); 
+              get().showToast(`${event.name} Active! (x${event.multiplier})`, 'warning'); 
+              triggerHaptic('success'); 
+          } else { 
+              state.triggerDecision(); 
+          } 
+      },
+
+      // [FIX] triggerDecision: Ambil event dari REGISTRY, hanya simpan ke state.
+      triggerDecision: () => { 
+          const state = get(); 
+          if (state.activeDecision || state.activeEvent) return; 
+          const randomEvent = DECISION_REGISTRY[Math.floor(Math.random() * DECISION_REGISTRY.length)]; 
+          set({ activeDecision: randomEvent }); 
+      },
+
+      // [FIX] resolveDecision: Cari fungsi asli dari REGISTRY berdasarkan ID, bukan dari state yang hilang fungsinya.
+      resolveDecision: (optionIndex) => { 
+          const state = get(); 
+          if (!state.activeDecision) return; 
+          
+          const decisionId = state.activeDecision.id;
+          // Cari definisi asli di REGISTRY agar dapat fungsinya
+          const originalEvent = DECISION_REGISTRY.find(d => d.id === decisionId);
+          
+          if (originalEvent) {
+              const option = originalEvent.options[optionIndex]; 
+              
+              if (option.risk) { 
+                  const roll = Math.random(); 
+                  if (roll < option.risk) { 
+                      triggerHaptic('error'); 
+                      get().showToast("Backfired!", "warning"); 
+                      set({ money: Math.max(0, state.money * 0.9) }); 
+                  } else { 
+                      triggerHaptic('success'); 
+                      option.effect(state); 
+                  } 
+              } else { 
+                  triggerHaptic('light'); 
+                  option.effect(state); 
+              }
+          }
+          
+          set({ activeDecision: null }); 
+      },
+
       clearEvent: () => set({ activeEvent: null }),
       showToast: (message, type = 'info') => { set({ toast: { message, type } }); setTimeout(() => { set({ toast: null }); }, 3000); },
       hideToast: () => set({ toast: null }),

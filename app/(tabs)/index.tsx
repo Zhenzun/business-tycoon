@@ -10,7 +10,7 @@ import { GachaSystemModal } from '../../components/GachaSystemModal';
 import { MissionsModal } from '../../components/MissionsModal'; 
 import { DecisionModal } from '../../components/DecisionModal'; 
 import { AnalyticsModal } from '../../components/AnalyticsModal'; 
-import { ArtifactsModal } from '../../components/ArtifactsModal'; // [NEW]
+import { ArtifactsModal } from '../../components/ArtifactsModal'; 
 import { ComboMeter } from '../../components/ComboMeter'; 
 import { BusinessCard } from '../../components/BusinessCard';
 import { ScaleButton } from '../../components/ScaleButton';
@@ -23,7 +23,7 @@ import { Stack, useRouter } from 'expo-router';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient'; 
 
-type ActiveAnim = { id: number; text: string; x: number; y: number };
+type ActiveAnim = { id: string; text: string; x: number; y: number };
 
 const WeatherIcon = ({ type }: { type: WeatherType }) => {
     switch (type) {
@@ -43,74 +43,19 @@ const getWeatherColor = (type: WeatherType) => {
     }
 };
 
-export default function Dashboard() {
-  const router = useRouter();
-  const { 
-    money, gems, businesses, managers, 
-    addMoney, upgradeBusiness, 
-    calculateOfflineEarnings, registerTap, 
-    getGlobalMultiplier, activeEvent, 
-    weather, newsTicker, checkMissions 
-  } = useGameStore();
-  
-  const [animations, setAnimations] = useState<ActiveAnim[]>([]);
-  const [showManagers, setShowManagers] = useState(false);
-  const [showAchievements, setShowAchievements] = useState(false);
-  const [showResearch, setShowResearch] = useState(false);
-  const [showMissions, setShowMissions] = useState(false);
-  const [showAnalytics, setShowAnalytics] = useState(false);
-  const [showArtifacts, setShowArtifacts] = useState(false); // [NEW]
-  const [offlineEarnings, setOfflineEarnings] = useState(0);
-  const [showCeoRoom, setShowCeoRoom] = useState(false);
-
-  const globalMult = getGlobalMultiplier();
-
-  useGameLoop();
-
-  useEffect(() => {
-    loadSounds();
-    const earned = calculateOfflineEarnings();
-    if (earned > 0) {
-        setOfflineEarnings(earned);
-    }
-  }, []);
-
-  const handleTap = (event: any) => {
-    playSound('tap'); 
-    const baseTapPower = 10;
-    const amount = baseTapPower * globalMult;
-    addMoney(amount);
-    registerTap();
-    checkMissions('EARN', amount);
-
-    const pageX = event?.nativeEvent?.pageX ?? 200;
-    const pageY = event?.nativeEvent?.pageY ?? 400;
-    
-    setAnimations((prev) => [
-      ...prev,
-      { id: Date.now(), text: `+$${formatCurrency(amount)}`, x: pageX + (Math.random() - 0.5) * 60 - 20, y: pageY - 40 },
-    ]);
-  };
-
-  const removeAnimation = useCallback((id: number) => {
-    setAnimations((prev) => prev.filter((a) => a.id !== id));
-  }, []);
-
-  const handleUpgradeBusiness = useCallback((id: string) => {
-      playSound('upgrade');
-      upgradeBusiness(id);
-  }, []);
-
-  const getWeatherGradient = (): [string, string] => {
-      switch (weather) {
-          case 'RAIN': return ['#1e293b', '#1e3a8a']; 
-          case 'STORM': return ['#0f172a', '#334155']; 
-          case 'GOLDEN_HOUR': return ['#451a03', '#b45309']; 
-          default: return ['#0f172a', '#1e293b']; 
-      }
-  };
-
-  const ListHeader = () => (
+// [FIX] Komponen Header dipisah agar TIDAK re-render total saat state berubah
+// Ini kunci agar tombol tidak "reset" saat ditekan cepat
+const DashboardHeader = React.memo(({ 
+    newsTicker, 
+    weather, 
+    globalMult, 
+    onTap 
+}: { 
+    newsTicker: string, 
+    weather: WeatherType, 
+    globalMult: number, 
+    onTap: (e: any) => void 
+}) => (
     <View className="mb-6 px-4">
       <View className="bg-black/30 mb-4 py-2 px-3 rounded-lg border border-white/5 overflow-hidden">
           <Text className="text-slate-400 text-xs font-mono" numberOfLines={1}>
@@ -131,11 +76,14 @@ export default function Dashboard() {
           </View>
       </View>
 
-      <ComboMeter />
+      {/* [FIX] Container Tinggi Tetap: Mencegah layout naik-turun */}
+      <View style={{ height: 80, justifyContent: 'center', marginBottom: 10, paddingHorizontal: 20 }}>
+          <ComboMeter />
+      </View>
 
       <View className="items-center justify-center mb-8">
         <ScaleButton
-          onPress={handleTap}
+          onPress={onTap}
           className={`p-8 rounded-full border-[8px] shadow-[0_0_50px_rgba(59,130,246,0.6)] active:scale-95 ${weather === 'GOLDEN_HOUR' ? 'bg-amber-500 border-amber-300/30' : 'bg-blue-600 border-blue-400/20'}`}
         >
           {weather === 'GOLDEN_HOUR' ? (
@@ -151,7 +99,84 @@ export default function Dashboard() {
 
       <Text className="text-white font-bold text-xl mb-2">My Assets</Text>
     </View>
-  );
+));
+
+export default function Dashboard() {
+  const router = useRouter();
+  const { 
+    money, gems, businesses, managers, 
+    addMoney, upgradeBusiness, 
+    calculateOfflineEarnings, registerTap, 
+    getGlobalMultiplier, activeEvent, 
+    weather, newsTicker, checkMissions 
+  } = useGameStore();
+  
+  const [animations, setAnimations] = useState<ActiveAnim[]>([]);
+  const [showManagers, setShowManagers] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
+  const [showResearch, setShowResearch] = useState(false);
+  const [showMissions, setShowMissions] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showArtifacts, setShowArtifacts] = useState(false);
+  const [offlineEarnings, setOfflineEarnings] = useState(0);
+  const [showCeoRoom, setShowCeoRoom] = useState(false);
+
+  const globalMult = getGlobalMultiplier();
+
+  useGameLoop();
+
+  useEffect(() => {
+    loadSounds();
+    const earned = calculateOfflineEarnings();
+    if (earned > 0) {
+        setOfflineEarnings(earned);
+    }
+  }, []);
+
+  // [FIX] useCallback penting agar fungsi tidak dibuat ulang tiap render
+  const handleTap = useCallback((event: any) => {
+    playSound('tap'); 
+    const baseTapPower = 10;
+    // Note: Kita ambil globalMult langsung dari store saat ini atau biarkan re-create jika mult berubah
+    // Di sini kita pakai globalMult dari scope component, pastikan dependency array benar.
+    const currentMult = useGameStore.getState().getGlobalMultiplier(); 
+    
+    const amount = baseTapPower * currentMult;
+    
+    // Panggil action store tanpa memicu re-render handleTap
+    const state = useGameStore.getState();
+    state.addMoney(amount);
+    state.registerTap();
+    state.checkMissions('EARN', amount);
+
+    const pageX = event?.nativeEvent?.pageX ?? 200;
+    const pageY = event?.nativeEvent?.pageY ?? 400;
+    
+    const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    setAnimations((prev) => [
+      ...prev,
+      { id: uniqueId, text: `+$${formatCurrency(amount)}`, x: pageX + (Math.random() - 0.5) * 60 - 20, y: pageY - 40 },
+    ]);
+  }, []); // Empty dependency karena kita pakai getState() untuk value dinamis
+
+  const removeAnimation = useCallback((id: string) => {
+    setAnimations((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
+  const handleUpgradeBusiness = useCallback((id: string) => {
+      playSound('upgrade');
+      upgradeBusiness(id);
+  }, []);
+
+  const getWeatherGradient = (): [string, string] => {
+      switch (weather) {
+          case 'RAIN': return ['#1e293b', '#1e3a8a']; 
+          case 'STORM': return ['#0f172a', '#334155']; 
+          case 'GOLDEN_HOUR': return ['#451a03', '#b45309']; 
+          default: return ['#0f172a', '#1e293b']; 
+      }
+  };
 
   return (
     <LinearGradient 
@@ -172,7 +197,7 @@ export default function Dashboard() {
         <MissionsModal visible={showMissions} onClose={() => setShowMissions(false)} />
         <DecisionModal /> 
         <AnalyticsModal visible={showAnalytics} onClose={() => setShowAnalytics(false)} />
-        <ArtifactsModal visible={showArtifacts} onClose={() => setShowArtifacts(false)} /> {/* [NEW] */}
+        <ArtifactsModal visible={showArtifacts} onClose={() => setShowArtifacts(false)} />
 
         <View className="bg-slate-900/95 pt-2 pb-3 px-5 border-b border-slate-800 z-20 shadow-xl backdrop-blur-md">
             {activeEvent && (
@@ -226,26 +251,34 @@ export default function Dashboard() {
 
         <FlatList
             data={businesses.filter((b) => b.owned)}
-            ListHeaderComponent={ListHeader}
+            // Pass Component langsung (Element), bukan Fungsi Render
+            ListHeaderComponent={
+                <DashboardHeader 
+                    newsTicker={newsTicker}
+                    weather={weather}
+                    globalMult={globalMult}
+                    onTap={handleTap}
+                />
+            }
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 100 }}
             className="pt-4"
             renderItem={({ item }) => {
-            const activeManager = managers.find(m => m.businessId === item.id && m.hired);
-            const mgrMult = activeManager ? activeManager.multiplier * (activeManager.level || 1) : 1;
+                const activeManager = managers.find(m => m.businessId === item.id && m.hired);
+                const mgrMult = activeManager ? activeManager.multiplier * (activeManager.level || 1) : 1;
 
-            return (
-                <View className="px-4">
-                    <BusinessCard 
-                    item={item}
-                    money={money}
-                    onUpgrade={handleUpgradeBusiness}
-                    globalMultiplier={globalMult}
-                    managerMultiplier={mgrMult}
-                    />
-                </View>
-            );
+                return (
+                    <View className="px-4">
+                        <BusinessCard 
+                        item={item}
+                        money={money}
+                        onUpgrade={handleUpgradeBusiness}
+                        globalMultiplier={globalMult}
+                        managerMultiplier={mgrMult}
+                        />
+                    </View>
+                );
             }}
         />
 
