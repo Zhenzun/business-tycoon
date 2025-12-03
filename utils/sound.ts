@@ -4,8 +4,7 @@ import { useGameStore } from '../store/gameStore';
 // Cache untuk menyimpan objek suara agar tidak perlu reload berulang kali
 const soundCache: { [key: string]: Audio.Sound } = {};
 
-// Mapping file suara
-// PENTING: Pastikan file .mp3 benar-benar ada di folder assets/sounds/
+// PERBAIKAN: Menggunakan '../' untuk keluar dari folder utils menuju folder assets
 const soundMap: { [key: string]: any } = {
   'tap': require('../assets/sounds/tap.ogg'),
   'cash': require('../assets/sounds/cash.ogg'),
@@ -26,7 +25,7 @@ export const loadSounds = async () => {
     }
     console.log("Sounds loaded successfully");
   } catch (error) {
-    console.log("Audio load error (Pastikan file mp3 ada di folder assets/sounds):", error);
+    console.log("Audio load error (Pastikan file ogg ada di folder assets/sounds):", error);
   }
 };
 

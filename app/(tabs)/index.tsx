@@ -81,7 +81,7 @@ export default function Dashboard() {
       <View className="items-center justify-center py-8 bg-slate-900/50 mb-6 border-b border-white/5">
         <ScaleButton
           onPress={handleTap}
-          className="bg-gradient-to-b from-blue-500 to-blue-700 p-6 rounded-full border-[6px] border-blue-400/20 shadow-[0_0_40px_rgba(59,130,246,0.5)] active:scale-95"
+          className="bg-blue-600 p-6 rounded-full border-[6px] border-blue-400/20 shadow-[0_0_40px_rgba(59,130,246,0.5)] active:scale-95"
         >
           <CircleDollarSign size={72} color="white" />
         </ScaleButton>

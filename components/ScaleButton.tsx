@@ -1,16 +1,24 @@
 import React from 'react';
-import { TouchableWithoutFeedback, GestureResponderEvent } from 'react-native';
+import { Pressable, GestureResponderEvent, ViewStyle } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { triggerHaptic } from '../utils/haptics';
+import { cssInterop } from 'nativewind';
 
 interface ScaleButtonProps {
   children: React.ReactNode;
   onPress?: (event: GestureResponderEvent) => void;
   disabled?: boolean;
   className?: string;
+  style?: ViewStyle;
 }
 
-export const ScaleButton = ({ children, onPress, disabled, className }: ScaleButtonProps) => {
+// 1. Buat komponen animasi
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// 2. PENTING: Daftarkan ke NativeWind agar className="bg-..." terbaca sebagai style
+cssInterop(AnimatedPressable, { className: 'style' });
+
+export const ScaleButton = ({ children, onPress, disabled, className, style }: ScaleButtonProps) => {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -19,37 +27,32 @@ export const ScaleButton = ({ children, onPress, disabled, className }: ScaleBut
 
   const handlePressIn = () => {
     if (disabled) return;
-    scale.value = withSpring(0.95); // Efek menyusut saat ditekan
+    scale.value = withSpring(0.95);
   };
 
   const handlePressOut = () => {
     if (disabled) return;
-    scale.value = withSpring(1); // Efek membal saat dilepas (HANYA ANIMASI)
+    scale.value = withSpring(1);
   };
 
   const handlePress = (event: GestureResponderEvent) => {
     if (disabled) return;
-    
     triggerHaptic('light');
-    
-    // PERBAIKAN: Panggil onPress secara langsung (sinkron).
-    // Menghapus requestAnimationFrame agar object 'event' tidak kadaluarsa/null
-    // saat dibaca di fungsi handleTap (index.tsx).
     if (onPress) {
       onPress(event);
     }
   };
 
   return (
-    <TouchableWithoutFeedback 
-        onPressIn={handlePressIn} 
-        onPressOut={handlePressOut} 
-        onPress={handlePress}
-        disabled={disabled}
+    <AnimatedPressable
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={handlePress}
+      disabled={disabled}
+      className={className}
+      style={[animatedStyle, style]} // Gabungkan style animasi dengan style dari className
     >
-      <Animated.View style={animatedStyle} className={className}>
-        {children}
-      </Animated.View>
-    </TouchableWithoutFeedback>
+      {children}
+    </AnimatedPressable>
   );
 };
