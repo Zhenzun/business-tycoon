@@ -17,6 +17,31 @@ export type Business = {
 // [UPDATE] Tambah Rarity
 export type ManagerRarity = 'Common' | 'Rare' | 'Legendary';
 
+export type WeatherType = 'SUNNY' | 'RAIN' | 'STORM' | 'GOLDEN_HOUR';
+
+export type WeatherType = 'SUNNY' | 'RAIN' | 'STORM' | 'GOLDEN_HOUR';
+
+export type CeoSkill = {
+    id: string;
+    name: string;
+    description: string;
+    level: number;
+    maxLevel: number;
+    cost: number; // Skill Points
+    effectType: 'tap_bonus' | 'idle_bonus' | 'upgrade_discount';
+    valuePerLevel: number;
+};
+
+export type Artifact = {
+    id: string;
+    name: string;
+    description: string;
+    owned: boolean;
+    effectType: 'global_mult' | 'luck_boost';
+    value: number;
+    rarity: 'Common' | 'Rare' | 'Mythic';
+};
+
 export type Manager = {
   id: string;
   name: string;
@@ -81,6 +106,24 @@ export type GameEvent = {
   duration: number;
   startTime?: number;
 };
+
+const WEATHER_EFFECTS: Record<WeatherType, { multiplier: number, message: string }> = {
+    'SUNNY': { multiplier: 1.0, message: "Cuaca cerah, bisnis berjalan normal." },
+    'RAIN': { multiplier: 0.8, message: "Hujan turun, pelanggan berkurang (-20%)." },
+    'STORM': { multiplier: 0.5, message: "Badai besar! Operasional terhambat (-50%)." },
+    'GOLDEN_HOUR': { multiplier: 2.0, message: "GOLDEN HOUR! Semua profit x2!" },
+};
+
+const INITIAL_SKILLS: CeoSkill[] = [
+    { id: 'skill_midas', name: 'Midas Touch', description: 'Increase Tap Profit', level: 0, maxLevel: 10, cost: 1, effectType: 'tap_bonus', valuePerLevel: 0.5 },
+    { id: 'skill_negotiator', name: 'Silver Tongue', description: 'Cheaper Business Upgrades', level: 0, maxLevel: 5, cost: 2, effectType: 'upgrade_discount', valuePerLevel: 0.05 },
+    { id: 'skill_manager', name: 'Micro Management', description: 'Boost Idle Revenue', level: 0, maxLevel: 10, cost: 1, effectType: 'idle_bonus', valuePerLevel: 0.2 },
+];
+
+const INITIAL_ARTIFACTS: Artifact[] = [
+    { id: 'art_coin', name: 'Ancient Coin', description: 'Global Profit x1.5', owned: false, effectType: 'global_mult', value: 1.5, rarity: 'Rare' },
+    { id: 'art_cat', name: 'Lucky Cat', description: 'Better Luck for Events', owned: false, effectType: 'luck_boost', value: 0.1, rarity: 'Mythic' },
+];
 
 const POSSIBLE_EVENTS: GameEvent[] = [
   { id: 'viral_marketing', name: '🔥 Viral Marketing', multiplier: 3, duration: 30 },
@@ -149,6 +192,16 @@ interface GameState {
   activeEvent: GameEvent | null;
   toast: { message: string; type: 'success' | 'info' | 'warning' } | null;
   angelUpgrades: string[];
+  weather: WeatherType;
+  newsTicker: string;
+  ceo: {
+      level: number;
+      xp: number;
+      maxXp: number;
+      skillPoints: number;
+  };
+  skills: CeoSkill[];
+  artifacts: Artifact[];
   updateLastLogin: () => void;
 
   // Actions
@@ -157,7 +210,6 @@ interface GameState {
   registerTap: () => void;
   buyBusiness: (id: string) => void;
   upgradeBusiness: (id: string) => void;
-  // [UPDATE] Hire diganti Summon
   summonManager: () => { success: boolean; manager?: Manager; message?: string };
   upgradeManager: (managerId: string) => void;
   buyResearch: (researchId: string) => void;
@@ -178,6 +230,9 @@ interface GameState {
   claimAchievement: (id: string) => void;
   prestige: () => void;
   hydrateFromCloud: (cloudData: any) => void;
+  changeWeather: () => void;
+  upgradeCeoSkill: (skillId: string) => void;
+  findArtifact: () => void; 
 }
 
 export const useGameStore = create<GameState>()(
@@ -200,6 +255,11 @@ export const useGameStore = create<GameState>()(
       activeEvent: null,
       toast: null,
       angelUpgrades: [],
+      weather: 'SUNNY',
+      newsTicker: "Welcome CEO!",
+      ceo: { level: 1, xp: 0, maxXp: 1000, skillPoints: 0 },
+      skills: INITIAL_SKILLS,
+      artifacts: INITIAL_ARTIFACTS,
       updateLastLogin: () => set({ lastLogin: Date.now() }),
 
       getGlobalMultiplier: () => {
@@ -213,7 +273,35 @@ export const useGameStore = create<GameState>()(
             const upgrade = ANGEL_UPGRADES.find(u => u.id === id);
             if (upgrade && upgrade.effectType === 'profit_mult') angelMult *= upgrade.value;
         });
-        return investorMult * researchMult * eventMult * angelMult;
+        const weatherMult = {
+            'SUNNY': 1.0, 'RAIN': 0.8, 'STORM': 0.5, 'GOLDEN_HOUR': 2.0
+        }[state.weather] || 1.0;
+        let skillBonus = 1;
+        state.skills.forEach(s => {
+            if (s.effectType === 'idle_bonus') skillBonus += (s.level * s.valuePerLevel);
+        });
+        let artBonus = 1;
+        state.artifacts.forEach(a => {
+            if (a.owned && a.effectType === 'global_mult') artBonus *= a.value;
+        });
+        return investorMult * researchMult * eventMult * angelMult * weatherMult * skillBonus * artBonus;
+      },
+
+      changeWeather: () => {
+          const rand = Math.random();
+          let newWeather: WeatherType = 'SUNNY';
+          
+          if (rand > 0.95) newWeather = 'GOLDEN_HOUR'; // 5% chance
+          else if (rand > 0.85) newWeather = 'STORM'; // 10% chance
+          else if (rand > 0.60) newWeather = 'RAIN'; // 25% chance
+          
+          // Jangan spam notif jika cuaca sama
+          if (get().weather !== newWeather) {
+              set({ 
+                  weather: newWeather,
+                  newsTicker: `WEATHER UPDATE: ${WEATHER_EFFECTS[newWeather].message}`
+              });
+          }
       },
 
       tickStocks: () => set((state) => {
@@ -278,11 +366,32 @@ export const useGameStore = create<GameState>()(
         return state;
       }),
 
-      addMoney: (amount) => set((state) => ({ 
-        money: state.money + amount,
-        lifetimeEarnings: state.lifetimeEarnings + amount,
-        stats: { ...state.stats, totalEarnings: state.stats.totalEarnings + amount }
-      })),
+      addMoney: (amount) => set((state) => {
+        const xpGained = Math.max(1, Math.floor(amount / 100)); 
+        let newXp = state.ceo.xp + xpGained;
+        let newLevel = state.ceo.level;
+        let newMaxXp = state.ceo.maxXp;
+        let newPoints = state.ceo.skillPoints;
+        let leveledUp = false;
+        
+        while (newXp >= newMaxXp) {
+            newXp -= newMaxXp;
+            newLevel++;
+            newMaxXp = Math.floor(newMaxXp * 1.5);
+            newPoints++;
+            leveledUp = true;
+        }
+        if (leveledUp) {
+            triggerHaptic('success');
+            get().showToast(`Level Up! You are now Level ${newLevel}`, 'success');
+        }
+        return {
+            money: state.money + amount,
+            lifetimeEarnings: state.lifetimeEarnings + amount,
+            stats: { ...state.stats, totalEarnings: state.stats.totalEarnings + amount },
+            ceo: { ...state.ceo, xp: newXp, level: newLevel, maxXp: newMaxXp, skillPoints: newPoints }
+        };
+      }),
       
       addGems: (amount) => set((state) => ({ gems: state.gems + amount })),
       
@@ -300,6 +409,44 @@ export const useGameStore = create<GameState>()(
         return state;
       }),
 
+      upgradeCeoSkill: (skillId) => set((state) => {
+          const skillIdx = state.skills.findIndex(s => s.id === skillId);
+          const skill = state.skills[skillIdx];
+          
+          if (state.ceo.skillPoints >= skill.cost && skill.level < skill.maxLevel) {
+              triggerHaptic('light');
+              const newSkills = [...state.skills];
+              newSkills[skillIdx] = { ...skill, level: skill.level + 1 };
+              
+              return {
+                  ceo: { ...state.ceo, skillPoints: state.ceo.skillPoints - skill.cost },
+                  skills: newSkills
+              };
+          }
+          return state;
+      }),
+
+      findArtifact: () => set((state) => {
+          // Cari artifact yang belum dimiliki
+          const unowned = state.artifacts.filter(a => !a.owned);
+          if (unowned.length === 0) return state;
+
+          const rand = Math.random();
+          // 5% chance to find one when triggered
+          if (rand < 0.05) {
+              const found = unowned[Math.floor(Math.random() * unowned.length)];
+              const artIdx = state.artifacts.findIndex(a => a.id === found.id);
+              const newArts = [...state.artifacts];
+              newArts[artIdx] = { ...found, owned: true };
+              
+              triggerHaptic('heavy');
+              get().showToast(`RARE FIND: You discovered ${found.name}!`, 'success');
+              
+              return { artifacts: newArts };
+          }
+          return state;
+      }),
+
       upgradeBusiness: (id) => set((state) => {
         const bizIndex = state.businesses.findIndex((b) => b.id === id);
         const biz = state.businesses[bizIndex];
@@ -309,20 +456,19 @@ export const useGameStore = create<GameState>()(
             const upg = ANGEL_UPGRADES.find(u => u.id === uid);
             if (upg && upg.effectType === 'cost_disc') discount += upg.value;
         });
-        const finalDiscount = Math.min(discount, 0.5);
+        state.skills.forEach(s => {
+            if (s.effectType === 'upgrade_discount') discount += (s.level * s.valuePerLevel);
+        });
+        const finalDiscount = Math.min(discount, 0.80); 
         cost = Math.floor(cost * (1 - finalDiscount)); 
-
         if (state.money >= cost && biz.owned) {
           triggerHaptic('light');
           const newLevel = biz.level + 1;
           let newBaseRevenue = biz.baseRevenue;
-          const milestones = [25, 50, 100, 200, 300, 400, 500, 1000];
-          if (milestones.includes(newLevel)) {
-             newBaseRevenue = newBaseRevenue * 2; 
-             triggerHaptic('success'); 
-          }
+          if ([25, 50, 100, 200].includes(newLevel)) newBaseRevenue *= 2;
           const newBizs = [...state.businesses];
           newBizs[bizIndex] = { ...biz, level: newLevel, baseRevenue: newBaseRevenue };
+          get().findArtifact();
           return { 
               money: state.money - cost, 
               businesses: newBizs,
@@ -562,7 +708,7 @@ export const useGameStore = create<GameState>()(
       }
     }),
     {
-      name: 'tycoon-storage-v16-god-tier', // Update version key
+      name: 'tycoon-storage-v2.0',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )
